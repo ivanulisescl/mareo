@@ -79,20 +79,26 @@ type AppTab = 'resumen' | 'completa' | 'prediccion';
 
 const GREETING_PHRASES = [
   'Buenos días, gordi. Que el mar te mire con cariño.',
+  'Si mi vida fuera una escalera, me la he pasado entera buscando el siguiente escalón, convencido de que estás en el tejado esperando a ver si llego yo.',
+  'Ama, ama, ama y ensancha el alma.',
   'Hola, pichurrina. Hoy también hay marea para nosotros.',
-  'Ceci, que tengas un día suave, como mar llana.',
   'Te quiero, gordi. Mira el cielo un momento por mí.',
   'Pichurrina, que el viento te traiga solo cosas buenas.',
   'Ceci, la luna y la mar van contigo.',
   'Gordi, que no te falte ni brisa ni abrigo.',
   'Hola, pichurrina. Un saludo desde la orilla, para ti.',
-  'Ceci, hoy el Cantábrico también piensa en ti.',
-  'Te echo de menos, gordi. Que la marea te dé un rato bonito.',
   'Pichurrina, que el día te trate tan bien como tú me tratas.',
   'Ceci, eres mi puerto. Que hoy haya calma.',
   'Gordi, un beso antes de mirar el parte.',
   'Pichurrina, que encuentres un claro entre nubes.',
   'Ceci, te quiero más que a las pleamares de septiembre.',
+  'Sus soldados son flores de madera y mi ejército no tiene bandera.',
+  'Tú por hacer, yo por quedarme tan parado y los dos juntos por tener nuestra cabeza en otro lado.',
+  'Para algunos la vida es cabalgar un camino empedrado de horas, minutos y segundos. Y yo, que más humilde soy, solo pido que la ola que surge del último suspiro de un segundo me transporte mecido hasta el siguiente.',
+  'Y verás el resurgir, poderoso, del guerrero, sin miedo a leyes ni a nostalgias; y caer mil veces más y levantarse de nuevo, sin más bandera que sus huevos.',
+  'Busco un mundo mejor y escarbo en un cajón, por si aparece entre mis cosas.',
+  'Ceci, si no fuera pa mirarte, ya no tendría cinco sentidos.',
+  'Me levanté hasta los huevos de vivir, te vi pasar y ahora ya vuelvo a sonreír.',
 ];
 
 function pickGreeting(): string {
