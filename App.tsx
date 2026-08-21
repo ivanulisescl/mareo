@@ -492,6 +492,14 @@ function Dashboard({ data }: { data: DashboardData }) {
         <Text style={styles.heroCaption}>{getSeaState(marine?.wave_height ?? null)}</Text>
         <View style={styles.metricsRow}>
           <Metric
+            icon={Navigation2}
+            label="Dirección"
+            value={
+              marine?.wave_direction != null ? degreesToCompass(marine.wave_direction) : '—'
+            }
+            tint={COLORS.sea}
+          />
+          <Metric
             icon={Waves}
             label="Periodo"
             value={`${formatMetric(marine?.wave_period, 0)} s`}
