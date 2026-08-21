@@ -47,6 +47,7 @@ import {
   formatTideClock,
   formatUpdatedAt,
   getSeaState,
+  getTideSize,
   getWeatherInfo,
 } from './types/weather';
 
@@ -222,6 +223,7 @@ function Summary({ data }: { data: DashboardData }) {
   const current = data.weather.current;
   const marine = data.marine?.current;
   const nextTide = data.nextTide;
+  const tideSize = getTideSize(data.tidesToday);
 
   return (
     <View style={styles.cards}>
@@ -236,17 +238,23 @@ function Summary({ data }: { data: DashboardData }) {
             icon={Wind}
             tint={COLORS.wind}
             label="Viento"
-            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)} · rachas ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
+            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}`}
           />
           <SummaryRow
             icon={Waves}
             tint={COLORS.sea}
             label="Mar"
-            value={`${getSeaState(marine?.wave_height ?? null)} · ${formatMetric(marine?.wave_height)} m · ${
+            value={`${getSeaState(marine?.wave_height ?? null)} · Olas de ${formatMetric(marine?.wave_height)} m`}
+          />
+          <SummaryRow
+            icon={Thermometer}
+            tint={COLORS.sea}
+            label="Agua"
+            value={
               marine?.sea_surface_temperature != null
                 ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
                 : '—'
-            }`}
+            }
           />
           <SummaryRow
             icon={nextTide?.kind === 'bajamar' ? ArrowDown : ArrowUp}
@@ -254,7 +262,11 @@ function Summary({ data }: { data: DashboardData }) {
             label="Próxima marea"
             value={
               nextTide
-                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)} · ${formatMetric(nextTide.height, 2)} m`
+                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)}${
+                    getTideSize(data.tidesToday)
+                      ? ` · marea ${getTideSize(data.tidesToday)}`
+                      : ''
+                  }`
                 : 'Sin más mareas hoy'
             }
           />

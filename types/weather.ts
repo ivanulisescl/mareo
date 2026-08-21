@@ -184,6 +184,31 @@ export function getSeaState(waveHeight: number | null): string {
   return 'Mar arbolada';
 }
 
+/** Clasifica la marea del día por amplitud (pleamar − bajamar), típica de la costa cantábrica. */
+export function getTideSize(tides: TideEvent[]): 'pequeña' | 'mediana' | 'grande' | null {
+  if (tides.length === 0) {
+    return null;
+  }
+
+  const highs = tides.filter((tide) => tide.kind === 'pleamar').map((tide) => tide.height);
+  const lows = tides.filter((tide) => tide.kind === 'bajamar').map((tide) => tide.height);
+
+  let range: number;
+  if (highs.length > 0 && lows.length > 0) {
+    range = Math.max(...highs) - Math.min(...lows);
+  } else {
+    range = Math.max(...tides.map((tide) => Math.abs(tide.height))) * 2;
+  }
+
+  if (range < 1.8) {
+    return 'pequeña';
+  }
+  if (range < 2.8) {
+    return 'mediana';
+  }
+  return 'grande';
+}
+
 export function formatUpdatedAt(isoTime: string): string {
   const date = new Date(isoTime);
   if (Number.isNaN(date.getTime())) {
