@@ -50,6 +50,11 @@ export type MarineCurrent = {
   sea_level_height_msl: number | null;
 };
 
+export type MarineHourly = {
+  time: string[];
+  sea_level_height_msl: (number | null)[];
+};
+
 export type MarineApiResponse = {
   latitude: number;
   longitude: number;
@@ -62,11 +67,22 @@ export type MarineApiResponse = {
     sea_surface_temperature: string;
     sea_level_height_msl: string;
   };
+  hourly?: MarineHourly;
+};
+
+export type TideKind = 'pleamar' | 'bajamar';
+
+export type TideEvent = {
+  kind: TideKind;
+  time: string;
+  height: number;
 };
 
 export type DashboardData = {
   weather: WeatherApiResponse;
   marine: MarineApiResponse | null;
+  tidesToday: TideEvent[];
+  nextTide: TideEvent | null;
   coordinates: Coordinates;
   placeLabel: string;
   usingFallbackLocation: boolean;
@@ -145,4 +161,102 @@ export function formatUpdatedAt(isoTime: string): string {
     day: '2-digit',
     month: 'short',
   });
+}
+
+export function formatTideClock(isoTime: string): string {
+  const timePart = isoTime.split('T')[1] ?? isoTime;
+  return timePart.slice(0, 5);
+}
+
+/** Interpreta timestamps de Open-Meteo (hora local, sin zona) como calendario ingenuo. */
+function naiveMinutes(isoTime: string): number | null {
+  const match = isoTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day, hour, minute] = match;
+  return Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) / 60000;
+}
+
+function isoFromNaiveMinutes(totalMinutes: number): string {
+  const date = new Date(totalMinutes * 60000);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+/**
+ * Extrae pleamares y bajamares del día interpolando máximos y mínimos locales
+ * en la serie horaria de sea_level_height_msl.
+ */
+export function extractDailyTides(
+  hourly: MarineHourly | undefined,
+  dayIso: string,
+): TideEvent[] {
+  if (!hourly) {
+    return [];
+  }
+
+  const points: { time: string; height: number }[] = [];
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const height = hourly.sea_level_height_msl[index];
+    const time = hourly.time[index];
+    if (height != null && time) {
+      points.push({ time, height });
+    }
+  }
+
+  const events: TideEvent[] = [];
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1].height;
+    const current = points[index].height;
+    const next = points[index + 1].height;
+    const isHigh = current >= previous && current > next;
+    const isLow = current <= previous && current < next;
+
+    if (!isHigh && !isLow) {
+      continue;
+    }
+
+    const center = naiveMinutes(points[index].time);
+    if (center == null) {
+      continue;
+    }
+
+    const curvature = previous - 2 * current + next;
+    let offsetHours = 0;
+    if (Math.abs(curvature) > 1e-6) {
+      offsetHours = (previous - next) / (2 * curvature);
+      offsetHours = Math.max(-0.49, Math.min(0.49, offsetHours));
+    }
+
+    const eventTime = isoFromNaiveMinutes(center + offsetHours * 60);
+    if (!eventTime.startsWith(dayIso)) {
+      continue;
+    }
+
+    events.push({
+      kind: isHigh ? 'pleamar' : 'bajamar',
+      time: eventTime,
+      height: current - (offsetHours * offsetHours * curvature) / 2,
+    });
+  }
+
+  return events;
+}
+
+export function getNextTide(tides: TideEvent[], nowIso: string): TideEvent | null {
+  const now = naiveMinutes(nowIso);
+  if (now == null) {
+    return tides.length > 0 ? tides[0] : null;
+  }
+
+  for (const tide of tides) {
+    const tideMinutes = naiveMinutes(tide.time);
+    if (tideMinutes != null && tideMinutes >= now - 5) {
+      return tide;
+    }
+  }
+
+  return null;
 }

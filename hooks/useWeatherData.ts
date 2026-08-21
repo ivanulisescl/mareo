@@ -5,7 +5,7 @@ import {
   DEFAULT_COASTAL_LABEL,
   fetchWeatherAndMarine,
 } from '../services/api';
-import type { Coordinates, DashboardData } from '../types/weather';
+import { extractDailyTides, getNextTide, type Coordinates, type DashboardData } from '../types/weather';
 
 async function resolvePlaceLabel(coords: Coordinates, usingFallback: boolean): Promise<string> {
   if (usingFallback) {
@@ -72,9 +72,15 @@ export function useWeatherData() {
         resolvePlaceLabel(coords, usingFallback),
       ]);
 
+      const dayIso = weather.current.time.slice(0, 10);
+      const tidesToday = extractDailyTides(marine?.hourly, dayIso);
+      const nextTide = getNextTide(tidesToday, weather.current.time);
+
       setData({
         weather,
         marine,
+        tidesToday,
+        nextTide,
         coordinates: coords,
         placeLabel,
         usingFallbackLocation: usingFallback,

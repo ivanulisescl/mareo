@@ -2,6 +2,8 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LucideIcon } from 'lucide-react-native';
 import {
+  ArrowDown,
+  ArrowUp,
   Cloud,
   CloudDrizzle,
   CloudFog,
@@ -29,9 +31,10 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useWeatherData } from './hooks/useWeatherData';
-import type { DashboardData, WeatherIconKey } from './types/weather';
+import type { DashboardData, TideEvent, WeatherIconKey } from './types/weather';
 import {
   degreesToCompass,
+  formatTideClock,
   formatUpdatedAt,
   getSeaState,
   getWeatherInfo,
@@ -116,7 +119,7 @@ function Header({ data }: { data: DashboardData | null }) {
       </View>
       {data?.usingFallbackLocation ? (
         <Text style={styles.fallbackHint}>
-          GPS no disponible. Mostrando costa por defecto.
+          GPS no disponible. Mostrando Colunga (Asturias).
         </Text>
       ) : null}
       {data ? (
@@ -232,7 +235,73 @@ function Dashboard({ data }: { data: DashboardData }) {
           </Text>
         ) : null}
       </Card>
+
+      <TidesCard tides={data.tidesToday} nextTide={data.nextTide} />
     </View>
+  );
+}
+
+function TidesCard({
+  tides,
+  nextTide,
+}: {
+  tides: TideEvent[];
+  nextTide: TideEvent | null;
+}) {
+  return (
+    <Card>
+      <CardHeader icon={Waves} tint={COLORS.sea} title="Mareas de hoy" />
+      {nextTide ? (
+        <Text style={styles.heroCaption}>
+          Próxima {nextTide.kind === 'pleamar' ? 'pleamar' : 'bajamar'}: {formatTideClock(nextTide.time)} ·{' '}
+          {formatMetric(nextTide.height, 2)} m
+        </Text>
+      ) : (
+        <Text style={styles.heroCaption}>Sin más mareas previstas hoy</Text>
+      )}
+
+      {tides.length === 0 ? (
+        <Text style={styles.fallbackHint}>No hay datos de marea para este día.</Text>
+      ) : (
+        <View style={styles.tideList}>
+          {tides.map((tide) => {
+            const isNext =
+              nextTide != null && nextTide.time === tide.time && nextTide.kind === tide.kind;
+            const isHigh = tide.kind === 'pleamar';
+            return (
+              <View
+                key={`${tide.kind}-${tide.time}`}
+                style={[styles.tideRow, isNext ? styles.tideRowNext : null]}
+              >
+                <View
+                  style={[
+                    styles.iconBadge,
+                    { backgroundColor: isHigh ? `${COLORS.wind}22` : `${COLORS.temp}22` },
+                  ]}
+                >
+                  {isHigh ? (
+                    <ArrowUp size={16} color={COLORS.wind} />
+                  ) : (
+                    <ArrowDown size={16} color={COLORS.temp} />
+                  )}
+                </View>
+                <View style={styles.tideInfo}>
+                  <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
+                  <Text style={styles.tideMeta}>
+                    {formatTideClock(tide.time)}
+                    {isNext ? ' · próxima' : ''}
+                  </Text>
+                </View>
+                <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+      <Text style={styles.fallbackHint}>
+        Altura respecto al nivel medio del mar (Open-Meteo). Orientativa, no usar para navegación.
+      </Text>
+    </Card>
   );
 }
 
@@ -425,6 +494,40 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '700',
+  },
+  tideList: {
+    gap: 8,
+  },
+  tideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    padding: 12,
+  },
+  tideRowNext: {
+    borderWidth: 1,
+    borderColor: COLORS.sea,
+    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+  },
+  tideInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  tideKind: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  tideMeta: {
+    color: COLORS.muted,
+    fontSize: 13,
+  },
+  tideHeight: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
   },
   windDirection: {
     flexDirection: 'row',

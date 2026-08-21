@@ -3,13 +3,13 @@ import type { Coordinates, MarineApiResponse, WeatherApiResponse } from '../type
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 
-/** Costa de Cádiz: fallback si el usuario deniega el GPS. */
+/** Costa de Colunga (Asturias): fallback si el usuario deniega el GPS. */
 export const DEFAULT_COASTAL_COORDS: Coordinates = {
-  latitude: 36.5297,
-  longitude: -6.2926,
+  latitude: 43.4849,
+  longitude: -5.2712,
 };
 
-export const DEFAULT_COASTAL_LABEL = 'Cádiz (costa por defecto)';
+export const DEFAULT_COASTAL_LABEL = 'Colunga (Asturias)';
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
@@ -48,6 +48,9 @@ export async function fetchMarine(coords: Coordinates): Promise<MarineApiRespons
       'sea_surface_temperature',
       'sea_level_height_msl',
     ].join(','),
+    hourly: 'sea_level_height_msl',
+    forecast_days: '2',
+    past_days: '1',
     timezone: 'auto',
     cell_selection: 'sea',
   });
