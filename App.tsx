@@ -335,12 +335,11 @@ function ForecastDayCard({
         </View>
         <View style={styles.forecastHeaderText}>
           <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
+          <Text style={styles.forecastSummary}>{weather.label}</Text>
           <Text style={styles.forecastSummary}>
-            {weather.label}
-            {day.waveHeightMax != null
-              ? ` · ${formatMetric(day.waveHeightMax)} m`
-              : ''}
-            {day.precipitationSum > 0 ? ` · ${formatMetric(day.precipitationSum, 1)} mm` : ''}
+            {`${formatMetric(day.windSpeedMax, 0)} km/h`}
+            {day.waveHeightMax != null ? ` · ${getSeaState(day.waveHeightMax)}` : ''}
+            {day.wavePeriodMax != null ? ` · ${formatMetric(day.wavePeriodMax, 0)} s` : ''}
           </Text>
         </View>
         <Text style={styles.forecastTemps}>
@@ -1040,7 +1039,7 @@ const styles = StyleSheet.create({
   },
   forecastHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
   },
   forecastHeaderText: {
