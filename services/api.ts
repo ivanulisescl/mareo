@@ -11,10 +11,54 @@ export const DEFAULT_COASTAL_COORDS: Coordinates = {
 
 export const DEFAULT_COASTAL_LABEL = 'Colunga (Asturias)';
 
+type ReverseGeocodeResponse = {
+  city?: string;
+  locality?: string;
+  principalSubdivision?: string;
+};
+
+function uniqueJoined(parts: Array<string | null | undefined>): string | null {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+
+  for (const part of parts) {
+    const value = part?.trim();
+    if (!value) {
+      continue;
+    }
+    const key = value.toLocaleLowerCase('es');
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    labels.push(value);
+  }
+
+  return labels.length > 0 ? labels.join(', ') : null;
+}
+
+/** Nombre de localidad a partir de coordenadas (funciona también en web, sin API key). */
+export async function fetchPlaceName(coords: Coordinates): Promise<string | null> {
+  const params = new URLSearchParams({
+    latitude: String(coords.latitude),
+    longitude: String(coords.longitude),
+    localityLanguage: 'es',
+  });
+
+  const data = await fetchJson<ReverseGeocodeResponse>(
+    `https://api.bigdatacloud.net/data/reverse-geocode-client?${params.toString()}`,
+  );
+
+  const locality = data.city?.trim() || data.locality?.trim();
+  const region = data.principalSubdivision?.split(',')[0]?.trim();
+
+  return uniqueJoined([locality, region]);
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Error ${response.status} al consultar Open-Meteo`);
+    throw new Error(`Error ${response.status} al consultar el servicio`);
   }
   return response.json() as Promise<T>;
 }

@@ -109,7 +109,7 @@ export default function App() {
 function Header({ data }: { data: DashboardData | null }) {
   return (
     <View style={styles.header}>
-      <Text style={styles.kicker}>DASHBOARD MARINO</Text>
+      <Text style={styles.kicker}>Climatología y estado de la mar</Text>
       <Text style={styles.title}>Mareo</Text>
       <View style={styles.locationRow}>
         <MapPin size={16} color={COLORS.accent} />
@@ -398,9 +398,10 @@ const styles = StyleSheet.create({
   },
   kicker: {
     color: COLORS.accent,
-    letterSpacing: 2.4,
-    fontSize: 11,
+    letterSpacing: 0.4,
+    fontSize: 13,
     fontWeight: '700',
+    lineHeight: 18,
   },
   title: {
     color: COLORS.text,

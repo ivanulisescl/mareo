@@ -3,9 +3,31 @@ import * as Location from 'expo-location';
 import {
   DEFAULT_COASTAL_COORDS,
   DEFAULT_COASTAL_LABEL,
+  fetchPlaceName,
   fetchWeatherAndMarine,
 } from '../services/api';
 import { extractDailyTides, getNextTide, type Coordinates, type DashboardData } from '../types/weather';
+
+function looksLikeCoordinates(value: string): boolean {
+  return /^-?\d+(?:[.,]\d+)?\s*,\s*-?\d+(?:[.,]\d+)?$/.test(value.trim());
+}
+
+function formatExpoPlace(place: Location.LocationGeocodedAddress | null): string | null {
+  if (!place) {
+    return null;
+  }
+
+  const locality = [place.city, place.district, place.subregion, place.name].find(
+    (value) => value && !looksLikeCoordinates(value),
+  );
+
+  if (!locality) {
+    return null;
+  }
+
+  const region = place.region && place.region !== locality ? place.region : null;
+  return region ? `${locality}, ${region}` : locality;
+}
 
 async function resolvePlaceLabel(coords: Coordinates, usingFallback: boolean): Promise<string> {
   if (usingFallback) {
@@ -14,17 +36,24 @@ async function resolvePlaceLabel(coords: Coordinates, usingFallback: boolean): P
 
   try {
     const [place] = await Location.reverseGeocodeAsync(coords);
-    if (!place) {
-      return `${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`;
+    const fromDevice = formatExpoPlace(place ?? null);
+    if (fromDevice) {
+      return fromDevice;
     }
-
-    const parts = [place.city ?? place.subregion, place.region, place.country].filter(Boolean);
-    return parts.length > 0
-      ? parts.join(', ')
-      : `${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`;
   } catch {
-    return `${coords.latitude.toFixed(3)}, ${coords.longitude.toFixed(3)}`;
+    // En web el geocódigo de Expo suele fallar; se usa la API pública.
   }
+
+  try {
+    const fromApi = await fetchPlaceName(coords);
+    if (fromApi) {
+      return fromApi;
+    }
+  } catch {
+    // Si tampoco hay nombre, no mostramos coordenadas.
+  }
+
+  return DEFAULT_COASTAL_LABEL;
 }
 
 async function resolveCoordinates(): Promise<{ coords: Coordinates; usingFallback: boolean }> {
