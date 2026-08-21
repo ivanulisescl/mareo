@@ -216,6 +216,28 @@ function nearestStation(coords: Coordinates, stations: IhmStation[]): IhmStation
 const GIJON_STATION_ID = '6';
 const GIJON_PREFERRED_RADIUS_KM = 40;
 
+/**
+ * Nivel medio del mar local sobre el cero hidrográfico (m), según fichas IHM
+ * (NMM y CH referidos a la misma señal de tierra).
+ * altura_NM = altura_CH − este valor.
+ */
+const MEAN_SEA_LEVEL_ABOVE_CH: Record<string, number> = {
+  '4': 2.412, // Llanes: CH 6,347 m − NMM 3,935 m
+  '5': 2.615, // Ribadesella: CH 4,976 m − NMM 2,361 m
+  '6': 2.424, // Gijón: CH 5,706 m − NMM 3,282 m (NGU 83, 2018)
+  '7': 2.46, // Avilés / San Juan de Nieva: CH 6,066 m − NMM 3,606 m
+  '8': 2.348, // Cudillero: CH 5,499 m − NMM 3,151 m
+  '10': 2.345, // Tapia: CH 5,623 m − NMM 3,278 m
+};
+
+const DEFAULT_MEAN_SEA_LEVEL_ABOVE_CH = MEAN_SEA_LEVEL_ABOVE_CH[GIJON_STATION_ID];
+
+function heightAboveMeanSeaLevel(stationId: string, heightOnChartDatum: number): number {
+  const meanSeaLevel =
+    MEAN_SEA_LEVEL_ABOVE_CH[stationId] ?? DEFAULT_MEAN_SEA_LEVEL_ABOVE_CH;
+  return Math.round((heightOnChartDatum - meanSeaLevel) * 100) / 100;
+}
+
 function pickTideStation(coords: Coordinates, stations: IhmStation[]): IhmStation | null {
   const gijon = stations.find((station) => station.id === GIJON_STATION_ID);
   if (gijon && distanceKm(coords, gijon) <= GIJON_PREFERRED_RADIUS_KM) {
@@ -298,7 +320,7 @@ export async function fetchOfficialTides(
         tides.push({
           kind: row.tipo === 'pleamar' ? 'pleamar' : 'bajamar',
           time: localTime,
-          height,
+          height: heightAboveMeanSeaLevel(station.id, height),
         });
       }
     }

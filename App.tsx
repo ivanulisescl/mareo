@@ -235,6 +235,16 @@ function Summary({ data }: { data: DashboardData }) {
             value={`${formatMetric(marine?.wave_height)} m · ${getSeaState(marine?.wave_height ?? null)}`}
           />
           <SummaryRow
+            icon={Thermometer}
+            tint={COLORS.sea}
+            label="Agua"
+            value={
+              marine?.sea_surface_temperature != null
+                ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
+                : '—'
+            }
+          />
+          <SummaryRow
             icon={nextTide?.kind === 'bajamar' ? ArrowDown : ArrowUp}
             tint={COLORS.sea}
             label="Próxima marea"
@@ -441,7 +451,7 @@ function TidesCard({
         </View>
       )}
       <Text style={styles.fallbackHint}>
-        Predicción IHM · hora peninsular. Alturas sobre el cero hidrográfico (no sobre el nivel medio del mar).
+        Predicción IHM · hora peninsular. Alturas sobre el nivel medio del mar.
       </Text>
     </Card>
   );
