@@ -24,7 +24,7 @@ import {
   Waves,
   Wind,
 } from 'lucide-react-native';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -78,6 +78,30 @@ const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
 
 type AppTab = 'resumen' | 'completa' | 'prediccion';
 
+const GREETING_PHRASES = [
+  'Buenos días, gordi. Que el mar te mire con cariño.',
+  'Hola, pichurrina. Hoy también hay marea para nosotros.',
+  'Ceci, que tengas un día suave, como mar llana.',
+  'Te quiero, gordi. Mira el cielo un momento por mí.',
+  'Pichurrina, que el viento te traiga solo cosas buenas.',
+  'Ceci, la luna y la mar van contigo.',
+  'Gordi, que no te falte ni brisa ni abrigo.',
+  'Hola, pichurrina. Un saludo desde la orilla, para ti.',
+  'Ceci, hoy el Cantábrico también piensa en ti.',
+  'Te echo de menos, gordi. Que la marea te dé un rato bonito.',
+  'Pichurrina, que el día te trate tan bien como tú me tratas.',
+  'Ceci, eres mi puerto. Que hoy haya calma.',
+  'Gordi, un beso antes de mirar el parte.',
+  'Pichurrina, que encuentres un claro entre nubes.',
+  'Ceci, te quiero más que a las pleamares de septiembre.',
+];
+
+const GREETING_MS = 3500;
+
+function pickGreeting(): string {
+  return GREETING_PHRASES[Math.floor(Math.random() * GREETING_PHRASES.length)];
+}
+
 function formatMetric(value: number | null | undefined, digits = 1): string {
   if (value == null || Number.isNaN(value)) {
     return '—';
@@ -89,6 +113,13 @@ export default function App() {
   const { data, loading, refreshing, error, refresh, locationChoice, selectLocation } =
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
+  const greeting = useMemo(() => pickGreeting(), []);
+  const [showGreeting, setShowGreeting] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowGreeting(false), GREETING_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -135,6 +166,15 @@ export default function App() {
         <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBarSafe}>
           <BottomNav tab={tab} onChange={setTab} />
         </SafeAreaView>
+        {showGreeting ? (
+          <Pressable style={styles.greetingOverlay} onPress={() => setShowGreeting(false)}>
+            <LinearGradient colors={['#04101C', '#0B1F33', '#06303A']} style={styles.greetingInner}>
+              <Image source={headerLogo} style={styles.greetingLogo} />
+              <Text style={styles.greetingTitle}>CliMarEo</Text>
+              <Text style={styles.greetingPhrase}>{greeting}</Text>
+            </LinearGradient>
+          </Pressable>
+        ) : null}
       </LinearGradient>
     </SafeAreaProvider>
   );
@@ -771,6 +811,33 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     marginBottom: 8,
+  },
+  greetingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+  },
+  greetingInner: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  greetingLogo: {
+    width: 96,
+    height: 96,
+  },
+  greetingTitle: {
+    color: COLORS.text,
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  greetingPhrase: {
+    color: COLORS.accent,
+    fontSize: 20,
+    lineHeight: 28,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   header: {
     paddingTop: 12,
