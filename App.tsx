@@ -241,15 +241,18 @@ function Summary({ data }: { data: DashboardData }) {
       : formatElapsedSince(previousTide.time, data.weather.current.time);
   const tideKindLabel = (kind: 'pleamar' | 'bajamar') =>
     kind === 'pleamar' ? 'Pleamar' : 'Bajamar';
-  const tideLines = [
-    tideSize ? `${tideSize.charAt(0).toUpperCase()}${tideSize.slice(1)}` : null,
+  const tideHeadline =
+    tideTrend && tideElapsed
+      ? `${tideTrend} desde hace ${tideElapsed}`
+      : tideTrend ?? 'Sin datos';
+  const tideDetails = [
     previousTide
       ? `Anterior ${tideKindLabel(previousTide.kind)} ${formatTideClock(previousTide.time)}`
       : null,
     nextTide
       ? `Próxima ${tideKindLabel(nextTide.kind)} ${formatTideClock(nextTide.time)}`
       : 'Sin más mareas previstas',
-    tideTrend && tideElapsed ? `${tideTrend} desde hace ${tideElapsed}` : tideTrend,
+    tideSize ? `Marea ${tideSize}` : null,
   ].filter((line): line is string => Boolean(line));
   const moon = getMoonPhase(data.weather.current.time);
 
@@ -294,8 +297,8 @@ function Summary({ data }: { data: DashboardData }) {
             icon={tideTrend === 'Subiendo' ? ArrowUp : ArrowDown}
             tint={COLORS.sea}
             label="Marea"
-            value={tideLines[0] ?? 'Sin datos'}
-            details={tideLines.slice(1)}
+            value={tideHeadline}
+            details={tideDetails}
           />
         </View>
       </Card>
