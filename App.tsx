@@ -46,7 +46,6 @@ import {
   formatElapsedSince,
   formatForecastDayLabel,
   formatTideClock,
-  formatUpdatedAt,
   getMoonPhase,
   getSeaState,
   getTideSize,
@@ -179,11 +178,6 @@ function Header({
         </Text>
         <ChevronDown size={18} color={COLORS.accent} />
       </Pressable>
-      {data ? (
-        <Text style={styles.updated}>
-          Actualizado {formatUpdatedAt(data.weather.current.time)}
-        </Text>
-      ) : null}
 
       <Modal
         visible={pickerOpen}
