@@ -24,9 +24,8 @@ import {
   Waves,
   Wind,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -96,8 +95,6 @@ const GREETING_PHRASES = [
   'Ceci, te quiero más que a las pleamares de septiembre.',
 ];
 
-const GREETING_MS = 3500;
-
 function pickGreeting(): string {
   return GREETING_PHRASES[Math.floor(Math.random() * GREETING_PHRASES.length)];
 }
@@ -114,23 +111,18 @@ export default function App() {
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
   const greeting = useMemo(() => pickGreeting(), []);
-  const [showGreeting, setShowGreeting] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShowGreeting(false), GREETING_MS);
-    return () => clearTimeout(timer);
-  }, []);
+  const waitingForData = loading && !data;
 
   return (
     <SafeAreaProvider>
       <LinearGradient colors={['#04101C', '#0B1F33', '#06303A']} style={styles.flex}>
         <StatusBar style="light" />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-          {loading && !data ? (
-            <View style={styles.centered}>
-              <Image source={headerLogo} style={styles.loadingLogo} />
-              <ActivityIndicator size="large" color={COLORS.accent} />
-              <Text style={styles.loadingLabel}>Consultando condiciones...</Text>
+          {waitingForData ? (
+            <View style={styles.greetingInner}>
+              <Image source={headerLogo} style={styles.greetingLogo} />
+              <Text style={styles.greetingTitle}>CliMarEo</Text>
+              <Text style={styles.greetingPhrase}>{greeting}</Text>
             </View>
           ) : (
             <ScrollView
@@ -163,18 +155,11 @@ export default function App() {
             </ScrollView>
           )}
         </SafeAreaView>
-        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBarSafe}>
-          <BottomNav tab={tab} onChange={setTab} />
-        </SafeAreaView>
-        {showGreeting ? (
-          <Pressable style={styles.greetingOverlay} onPress={() => setShowGreeting(false)}>
-            <LinearGradient colors={['#04101C', '#0B1F33', '#06303A']} style={styles.greetingInner}>
-              <Image source={headerLogo} style={styles.greetingLogo} />
-              <Text style={styles.greetingTitle}>CliMarEo</Text>
-              <Text style={styles.greetingPhrase}>{greeting}</Text>
-            </LinearGradient>
-          </Pressable>
-        ) : null}
+        {waitingForData ? null : (
+          <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBarSafe}>
+            <BottomNav tab={tab} onChange={setTab} />
+          </SafeAreaView>
+        )}
       </LinearGradient>
     </SafeAreaProvider>
   );
@@ -796,25 +781,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingBottom: 20,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingLabel: {
-    color: COLORS.muted,
-    fontSize: 15,
-  },
-  loadingLogo: {
-    width: 88,
-    height: 88,
-    marginBottom: 8,
-  },
-  greetingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 20,
   },
   greetingInner: {
     flex: 1,
