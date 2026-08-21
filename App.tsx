@@ -157,10 +157,10 @@ function Header({
   return (
     <View style={styles.header}>
       <View style={styles.titleRow}>
-        <Image source={headerLogo} style={styles.headerLogo} accessibilityLabel="Logo de Mareo" />
+        <Image source={headerLogo} style={styles.headerLogo} accessibilityLabel="Logo de CliMarEo" />
         <View style={styles.titleBlock}>
           <Text style={styles.kicker}>Climatología y estado de la mar</Text>
-          <Text style={styles.title}>Mareo</Text>
+          <Text style={styles.title}>CliMarEo</Text>
         </View>
       </View>
       <Pressable
@@ -236,23 +236,17 @@ function Summary({ data }: { data: DashboardData }) {
             icon={Wind}
             tint={COLORS.wind}
             label="Viento"
-            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}`}
+            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)} · rachas ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
           />
           <SummaryRow
             icon={Waves}
             tint={COLORS.sea}
             label="Mar"
-            value={`${formatMetric(marine?.wave_height)} m · ${getSeaState(marine?.wave_height ?? null)}`}
-          />
-          <SummaryRow
-            icon={Thermometer}
-            tint={COLORS.sea}
-            label="Agua"
-            value={
+            value={`${getSeaState(marine?.wave_height ?? null)} · ${formatMetric(marine?.wave_height)} m · ${
               marine?.sea_surface_temperature != null
                 ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
                 : '—'
-            }
+            }`}
           />
           <SummaryRow
             icon={nextTide?.kind === 'bajamar' ? ArrowDown : ArrowUp}
@@ -260,7 +254,7 @@ function Summary({ data }: { data: DashboardData }) {
             label="Próxima marea"
             value={
               nextTide
-                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)}`
+                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)} · ${formatMetric(nextTide.height, 2)} m`
                 : 'Sin más mareas hoy'
             }
           />
@@ -769,7 +763,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.text,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     marginTop: 2,
   },
