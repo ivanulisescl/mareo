@@ -26,6 +26,7 @@ import {
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -34,6 +35,8 @@ import {
   Text,
   View,
 } from 'react-native';
+
+const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useWeatherData } from './hooks/useWeatherData';
 import type { DashboardData, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
@@ -89,6 +92,7 @@ export default function App() {
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
           {loading && !data ? (
             <View style={styles.centered}>
+              <Image source={headerLogo} style={styles.loadingLogo} />
               <ActivityIndicator size="large" color={COLORS.accent} />
               <Text style={styles.loadingLabel}>Consultando condiciones...</Text>
             </View>
@@ -142,8 +146,13 @@ function Header({
 
   return (
     <View style={styles.header}>
-      <Text style={styles.kicker}>Climatología y estado de la mar</Text>
-      <Text style={styles.title}>Mareo</Text>
+      <View style={styles.titleRow}>
+        <Image source={headerLogo} style={styles.headerLogo} accessibilityLabel="Logo de Mareo" />
+        <View style={styles.titleBlock}>
+          <Text style={styles.kicker}>Climatología y estado de la mar</Text>
+          <Text style={styles.title}>Mareo</Text>
+        </View>
+      </View>
       <Pressable
         onPress={() => setPickerOpen(true)}
         style={styles.locationRow}
@@ -564,9 +573,26 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontSize: 15,
   },
+  loadingLogo: {
+    width: 88,
+    height: 88,
+    marginBottom: 8,
+  },
   header: {
     paddingTop: 12,
     paddingBottom: 20,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerLogo: {
+    width: 64,
+    height: 64,
+  },
+  titleBlock: {
+    flex: 1,
   },
   kicker: {
     color: COLORS.accent,
@@ -577,9 +603,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.text,
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: 2,
   },
   locationRow: {
     flexDirection: 'row',
