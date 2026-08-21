@@ -3,8 +3,10 @@ import * as Location from 'expo-location';
 import {
   COLUNGA_COORDS,
   COLUNGA_LABEL,
+  FORECAST_DAYS,
   GIJON_COORDS,
   GIJON_LABEL,
+  buildDayForecasts,
   fetchOfficialTides,
   fetchPlaceName,
   fetchWeatherAndMarine,
@@ -110,7 +112,8 @@ export function useWeatherData() {
 
       const { weather, marine } = await fetchWeatherAndMarine(coords);
       const dayIso = weather.current.time.slice(0, 10);
-      const { tides: tidesToday, stationName } = await fetchOfficialTides(coords, dayIso);
+      const { tidesByDay, stationName } = await fetchOfficialTides(coords, dayIso, FORECAST_DAYS);
+      const tidesToday = tidesByDay[dayIso] ?? [];
       const nextTide = getNextTide(tidesToday, weather.current.time);
 
       setLocationChoice(choice);
@@ -120,6 +123,7 @@ export function useWeatherData() {
         tidesToday,
         nextTide,
         tideStationName: stationName,
+        forecastDays: buildDayForecasts(weather, marine, tidesByDay),
         coordinates: coords,
         placeLabel,
         locationChoice: choice,

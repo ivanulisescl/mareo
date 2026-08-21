@@ -1,5 +1,6 @@
 import type {
   Coordinates,
+  DayForecast,
   MarineApiResponse,
   TideEvent,
   WeatherApiResponse,
@@ -78,6 +79,8 @@ async function fetchJson<T>(url: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export const FORECAST_DAYS = 7;
+
 export async function fetchWeather(coords: Coordinates): Promise<WeatherApiResponse> {
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
@@ -90,6 +93,16 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'wind_direction_10m',
       'wind_gusts_10m',
     ].join(','),
+    daily: [
+      'weather_code',
+      'temperature_2m_max',
+      'temperature_2m_min',
+      'precipitation_sum',
+      'wind_speed_10m_max',
+      'wind_gusts_10m_max',
+      'wind_direction_10m_dominant',
+    ].join(','),
+    forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
   });
 
@@ -106,6 +119,13 @@ export async function fetchMarine(coords: Coordinates): Promise<MarineApiRespons
       'wave_period',
       'sea_surface_temperature',
     ].join(','),
+    daily: [
+      'wave_height_max',
+      'wave_direction_dominant',
+      'wave_period_max',
+      'sea_surface_temperature_max',
+    ].join(','),
+    forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
     cell_selection: 'sea',
   });
@@ -292,16 +312,21 @@ async function fetchIhmTideRows(stationId: string, utcDayIso: string): Promise<I
 
 export async function fetchOfficialTides(
   coords: Coordinates,
-  dayIso: string,
-): Promise<{ tides: TideEvent[]; stationName: string | null }> {
+  startDayIso: string,
+  dayCount = 1,
+): Promise<{ tidesByDay: Record<string, TideEvent[]>; stationName: string | null }> {
   try {
     const stations = await fetchIhmStations();
     const station = pickTideStation(coords, stations);
     if (!station) {
-      return { tides: [], stationName: null };
+      return { tidesByDay: {}, stationName: null };
     }
 
-    const utcDays = [shiftIsoDate(dayIso, -1), dayIso];
+    const utcDays: string[] = [];
+    for (let offset = -1; offset < dayCount; offset += 1) {
+      utcDays.push(shiftIsoDate(startDayIso, offset));
+    }
+
     const dailyRows = await Promise.all(
       utcDays.map(async (utcDay) => ({
         utcDay,
@@ -309,15 +334,24 @@ export async function fetchOfficialTides(
       })),
     );
 
-    const tides: TideEvent[] = [];
+    const endDayIso = shiftIsoDate(startDayIso, dayCount);
+    const tidesByDay: Record<string, TideEvent[]> = {};
+
     for (const { utcDay, rows } of dailyRows) {
       for (const row of rows) {
         const height = Number(row.altura.replace(',', '.'));
         const localTime = ihmUtcToMadridIso(utcDay, row.hora);
-        if (Number.isNaN(height) || !localTime || !localTime.startsWith(dayIso)) {
+        if (Number.isNaN(height) || !localTime) {
           continue;
         }
-        tides.push({
+        const localDay = localTime.slice(0, 10);
+        if (localDay < startDayIso || localDay >= endDayIso) {
+          continue;
+        }
+        if (!tidesByDay[localDay]) {
+          tidesByDay[localDay] = [];
+        }
+        tidesByDay[localDay].push({
           kind: row.tipo === 'pleamar' ? 'pleamar' : 'bajamar',
           time: localTime,
           height: heightAboveMeanSeaLevel(station.id, height),
@@ -325,13 +359,62 @@ export async function fetchOfficialTides(
       }
     }
 
-    tides.sort((left, right) => left.time.localeCompare(right.time));
+    for (const day of Object.keys(tidesByDay)) {
+      tidesByDay[day].sort((left, right) => left.time.localeCompare(right.time));
+    }
 
     return {
-      tides,
+      tidesByDay,
       stationName: station.puerto,
     };
   } catch {
-    return { tides: [], stationName: null };
+    return { tidesByDay: {}, stationName: null };
   }
+}
+
+function marineValueForDay(
+  daily: MarineApiResponse['daily'],
+  date: string,
+  key:
+    | 'wave_height_max'
+    | 'wave_direction_dominant'
+    | 'wave_period_max'
+    | 'sea_surface_temperature_max',
+): number | null {
+  if (!daily) {
+    return null;
+  }
+  const index = daily.time.indexOf(date);
+  if (index < 0) {
+    return null;
+  }
+  const value = daily[key][index];
+  return value == null || Number.isNaN(value) ? null : value;
+}
+
+export function buildDayForecasts(
+  weather: WeatherApiResponse,
+  marine: MarineApiResponse | null,
+  tidesByDay: Record<string, TideEvent[]>,
+): DayForecast[] {
+  const daily = weather.daily;
+  if (!daily) {
+    return [];
+  }
+
+  return daily.time.map((date, index) => ({
+    date,
+    weatherCode: daily.weather_code[index],
+    temperatureMax: daily.temperature_2m_max[index],
+    temperatureMin: daily.temperature_2m_min[index],
+    precipitationSum: daily.precipitation_sum[index],
+    windSpeedMax: daily.wind_speed_10m_max[index],
+    windGustsMax: daily.wind_gusts_10m_max[index],
+    windDirectionDominant: daily.wind_direction_10m_dominant[index],
+    waveHeightMax: marineValueForDay(marine?.daily, date, 'wave_height_max'),
+    waveDirectionDominant: marineValueForDay(marine?.daily, date, 'wave_direction_dominant'),
+    wavePeriodMax: marineValueForDay(marine?.daily, date, 'wave_period_max'),
+    waterTemperature: marineValueForDay(marine?.daily, date, 'sea_surface_temperature_max'),
+    tides: tidesByDay[date] ?? [],
+  }));
 }

@@ -40,6 +40,18 @@ export type WeatherApiResponse = {
     wind_direction_10m: string;
     wind_gusts_10m: string;
   };
+  daily?: WeatherDaily;
+};
+
+export type WeatherDaily = {
+  time: string[];
+  weather_code: number[];
+  temperature_2m_max: number[];
+  temperature_2m_min: number[];
+  precipitation_sum: number[];
+  wind_speed_10m_max: number[];
+  wind_gusts_10m_max: number[];
+  wind_direction_10m_dominant: number[];
 };
 
 export type MarineCurrent = {
@@ -62,6 +74,15 @@ export type MarineApiResponse = {
     wave_period: string;
     sea_surface_temperature: string;
   };
+  daily?: MarineDaily;
+};
+
+export type MarineDaily = {
+  time: string[];
+  wave_height_max: Array<number | null>;
+  wave_direction_dominant: Array<number | null>;
+  wave_period_max: Array<number | null>;
+  sea_surface_temperature_max: Array<number | null>;
 };
 
 export type TideKind = 'pleamar' | 'bajamar';
@@ -72,12 +93,29 @@ export type TideEvent = {
   height: number;
 };
 
+export type DayForecast = {
+  date: string;
+  weatherCode: number;
+  temperatureMax: number;
+  temperatureMin: number;
+  precipitationSum: number;
+  windSpeedMax: number;
+  windGustsMax: number;
+  windDirectionDominant: number;
+  waveHeightMax: number | null;
+  waveDirectionDominant: number | null;
+  wavePeriodMax: number | null;
+  waterTemperature: number | null;
+  tides: TideEvent[];
+};
+
 export type DashboardData = {
   weather: WeatherApiResponse;
   marine: MarineApiResponse | null;
   tidesToday: TideEvent[];
   nextTide: TideEvent | null;
   tideStationName: string | null;
+  forecastDays: DayForecast[];
   coordinates: Coordinates;
   placeLabel: string;
   locationChoice: LocationChoice;
@@ -162,6 +200,23 @@ export function formatUpdatedAt(isoTime: string): string {
 export function formatTideClock(isoTime: string): string {
   const timePart = isoTime.split('T')[1] ?? isoTime;
   return timePart.slice(0, 5);
+}
+
+export function formatForecastDayLabel(dateIso: string, todayIso: string): string {
+  if (dateIso === todayIso) {
+    return 'Hoy';
+  }
+
+  const [year, month, day] = todayIso.split('-').map(Number);
+  const tomorrowIso = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  if (dateIso === tomorrowIso) {
+    return 'Mañana';
+  }
+
+  const date = new Date(`${dateIso}T12:00:00`);
+  const weekday = date.toLocaleDateString('es-ES', { weekday: 'long' });
+  const dayLabel = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayLabel}`;
 }
 
 /** Interpreta horas locales sin zona (Open-Meteo / Anuario de Mareas). */

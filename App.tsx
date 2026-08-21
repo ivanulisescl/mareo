@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import {
   ArrowDown,
   ArrowUp,
+  CalendarDays,
   Check,
   ChevronDown,
   Cloud,
@@ -39,9 +40,10 @@ import {
 const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useWeatherData } from './hooks/useWeatherData';
-import type { DashboardData, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
+import type { DashboardData, DayForecast, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
 import {
   degreesToCompass,
+  formatForecastDayLabel,
   formatTideClock,
   formatUpdatedAt,
   getSeaState,
@@ -71,7 +73,7 @@ const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
   storm: CloudLightning,
 };
 
-type AppTab = 'resumen' | 'completa';
+type AppTab = 'resumen' | 'completa' | 'prediccion';
 
 function formatMetric(value: number | null | undefined, digits = 1): string {
   if (value == null || Number.isNaN(value)) {
@@ -115,7 +117,15 @@ export default function App() {
                 onSelectLocation={selectLocation}
               />
               {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
-              {data ? tab === 'resumen' ? <Summary data={data} /> : <Dashboard data={data} /> : null}
+              {data ? (
+                tab === 'resumen' ? (
+                  <Summary data={data} />
+                ) : tab === 'completa' ? (
+                  <Dashboard data={data} />
+                ) : (
+                  <Forecast data={data} />
+                )
+              ) : null}
             </ScrollView>
           )}
         </SafeAreaView>
@@ -257,6 +267,146 @@ function Summary({ data }: { data: DashboardData }) {
         </View>
       </Card>
     </View>
+  );
+}
+
+function Forecast({ data }: { data: DashboardData }) {
+  const todayIso = data.weather.current.time.slice(0, 10);
+  const [openDate, setOpenDate] = useState(data.forecastDays[0]?.date ?? null);
+
+  if (data.forecastDays.length === 0) {
+    return (
+      <View style={styles.cards}>
+        <Card>
+          <Text style={styles.fallbackHint}>No hay predicción disponible ahora mismo.</Text>
+        </Card>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.cards}>
+      {data.forecastDays.map((day) => (
+        <ForecastDayCard
+          key={day.date}
+          day={day}
+          todayIso={todayIso}
+          expanded={openDate === day.date}
+          onToggle={() => setOpenDate((current) => (current === day.date ? null : day.date))}
+        />
+      ))}
+      <Text style={styles.fallbackHint}>
+        Clima y mar: Open-Meteo · Mareas IHM
+        {data.tideStationName ? ` · estación ${data.tideStationName}` : ''}
+        . Alturas sobre el nivel medio del mar.
+      </Text>
+    </View>
+  );
+}
+
+function ForecastDayCard({
+  day,
+  todayIso,
+  expanded,
+  onToggle,
+}: {
+  day: DayForecast;
+  todayIso: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const weather = getWeatherInfo(day.weatherCode);
+  const WeatherIcon = WEATHER_ICONS[weather.icon];
+
+  return (
+    <Card>
+      <Pressable
+        onPress={onToggle}
+        style={styles.forecastHeader}
+        accessibilityRole="button"
+        accessibilityLabel={`${formatForecastDayLabel(day.date, todayIso)}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
+      >
+        <View style={[styles.iconBadge, { backgroundColor: `${COLORS.temp}22` }]}>
+          <WeatherIcon size={18} color={COLORS.temp} />
+        </View>
+        <View style={styles.forecastHeaderText}>
+          <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
+          <Text style={styles.forecastSummary}>
+            {weather.label}
+            {day.waveHeightMax != null
+              ? ` · ${formatMetric(day.waveHeightMax)} m`
+              : ''}
+            {day.precipitationSum > 0 ? ` · ${formatMetric(day.precipitationSum, 1)} mm` : ''}
+          </Text>
+        </View>
+        <Text style={styles.forecastTemps}>
+          {Math.round(day.temperatureMax)}°
+          <Text style={styles.forecastTempMin}> / {Math.round(day.temperatureMin)}°</Text>
+        </Text>
+        <ChevronDown
+          size={18}
+          color={COLORS.accent}
+          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+        />
+      </Pressable>
+
+      {expanded ? (
+        <View style={styles.forecastBody}>
+          <SummaryRow
+            icon={Wind}
+            tint={COLORS.wind}
+            label="Viento"
+            value={`${formatMetric(day.windSpeedMax, 0)} km/h ${degreesToCompass(day.windDirectionDominant)} · rachas ${formatMetric(day.windGustsMax, 0)}`}
+          />
+          <SummaryRow
+            icon={Waves}
+            tint={COLORS.sea}
+            label="Mar"
+            value={`${formatMetric(day.waveHeightMax)} m · ${getSeaState(day.waveHeightMax)}${
+              day.wavePeriodMax != null ? ` · ${formatMetric(day.wavePeriodMax, 0)} s` : ''
+            }`}
+          />
+          <SummaryRow
+            icon={Thermometer}
+            tint={COLORS.sea}
+            label="Agua"
+            value={
+              day.waterTemperature != null ? `${formatMetric(day.waterTemperature, 1)}°` : '—'
+            }
+          />
+          {day.tides.length === 0 ? (
+            <Text style={styles.fallbackHint}>Sin datos de marea para este día.</Text>
+          ) : (
+            <View style={styles.tideList}>
+              {day.tides.map((tide) => {
+                const isHigh = tide.kind === 'pleamar';
+                return (
+                  <View key={`${tide.kind}-${tide.time}`} style={styles.tideRow}>
+                    <View
+                      style={[
+                        styles.iconBadge,
+                        { backgroundColor: isHigh ? `${COLORS.wind}22` : `${COLORS.temp}22` },
+                      ]}
+                    >
+                      {isHigh ? (
+                        <ArrowUp size={16} color={COLORS.wind} />
+                      ) : (
+                        <ArrowDown size={16} color={COLORS.temp} />
+                      )}
+                    </View>
+                    <View style={styles.tideInfo}>
+                      <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
+                      <Text style={styles.tideMeta}>{formatTideClock(tide.time)}</Text>
+                    </View>
+                    <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      ) : null}
+    </Card>
   );
 }
 
@@ -540,6 +690,12 @@ function BottomNav({ tab, onChange }: { tab: AppTab; onChange: (next: AppTab) =>
         icon={List}
         label="Completa"
         onPress={() => onChange('completa')}
+      />
+      <TabButton
+        active={tab === 'prediccion'}
+        icon={CalendarDays}
+        label="Predicción"
+        onPress={() => onChange('prediccion')}
       />
     </View>
   );
@@ -864,8 +1020,8 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: 4,
+    paddingHorizontal: 10,
     paddingTop: 8,
     paddingBottom: 8,
   },
@@ -874,7 +1030,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 14,
   },
   tabButtonActive: {
@@ -883,7 +1039,39 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accent,
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
+  },
+  forecastHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  forecastHeaderText: {
+    flex: 1,
+  },
+  forecastDay: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  forecastSummary: {
+    color: COLORS.muted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  forecastTemps: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  forecastTempMin: {
+    color: COLORS.muted,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  forecastBody: {
+    marginTop: 14,
+    gap: 10,
   },
 });
