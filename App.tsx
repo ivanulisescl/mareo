@@ -288,17 +288,17 @@ function Summary({ data }: { data: DashboardData }) {
             }
           />
           <SummaryRow
-            icon={Moon}
-            tint={COLORS.moon}
-            label="Luna"
-            value={`${moon.label} · ${moon.illumination}%`}
-          />
-          <SummaryRow
             icon={tideTrend === 'Subiendo' ? ArrowUp : ArrowDown}
             tint={COLORS.sea}
             label="Marea"
             value={tideHeadline}
             details={tideDetails}
+          />
+          <SummaryRow
+            icon={Moon}
+            tint={COLORS.moon}
+            label="Luna"
+            value={`${moon.label} · ${moon.illumination}%`}
           />
         </View>
       </Card>
