@@ -263,9 +263,7 @@ function Summary({ data }: { data: DashboardData }) {
             value={
               nextTide
                 ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)}${
-                    getTideSize(data.tidesToday)
-                      ? ` · marea ${getTideSize(data.tidesToday)}`
-                      : ''
+                    tideSize ? ` · marea ${tideSize}` : ''
                   }`
                 : 'Sin más mareas hoy'
             }
@@ -477,12 +475,6 @@ function Dashboard({ data }: { data: DashboardData }) {
         <WindDirection degrees={current.wind_direction_10m} />
         <View style={styles.metricsRow}>
           <Metric
-            icon={Navigation2}
-            label="Dirección"
-            value={`${degreesToCompass(current.wind_direction_10m)} · ${Math.round(current.wind_direction_10m)}°`}
-            tint={COLORS.wind}
-          />
-          <Metric
             icon={Wind}
             label="Rachas"
             value={`${formatMetric(current.wind_gusts_10m, 0)} km/h`}
@@ -499,16 +491,6 @@ function Dashboard({ data }: { data: DashboardData }) {
         </Text>
         <Text style={styles.heroCaption}>{getSeaState(marine?.wave_height ?? null)}</Text>
         <View style={styles.metricsRow}>
-          <Metric
-            icon={Navigation2}
-            label="Dirección"
-            value={
-              marine?.wave_direction != null
-                ? `${degreesToCompass(marine.wave_direction)} · ${Math.round(marine.wave_direction)}°`
-                : '—'
-            }
-            tint={COLORS.sea}
-          />
           <Metric
             icon={Waves}
             label="Periodo"
