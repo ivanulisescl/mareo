@@ -14,7 +14,6 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
-  Droplets,
   LayoutGrid,
   List,
   MapPin,
@@ -496,14 +495,6 @@ function Dashboard({ data }: { data: DashboardData }) {
             value={`${Math.round(current.apparent_temperature)}°`}
             tint={COLORS.temp}
           />
-          <Metric
-            icon={Droplets}
-            label="Código WMO"
-            value={String(current.weather_code)}
-            tint={COLORS.accent}
-          />
-        </View>
-        <View style={styles.metricsRow}>
           <Metric
             icon={Moon}
             label="Luna"
