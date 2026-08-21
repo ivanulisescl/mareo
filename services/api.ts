@@ -203,38 +203,101 @@ function nearestStation(coords: Coordinates, stations: IhmStation[]): IhmStation
   return best;
 }
 
+const GIJON_STATION_ID = '6';
+const GIJON_PREFERRED_RADIUS_KM = 40;
+
+function pickTideStation(coords: Coordinates, stations: IhmStation[]): IhmStation | null {
+  const gijon = stations.find((station) => station.id === GIJON_STATION_ID);
+  if (gijon && distanceKm(coords, gijon) <= GIJON_PREFERRED_RADIUS_KM) {
+    return gijon;
+  }
+  return nearestStation(coords, stations);
+}
+
+function shiftIsoDate(dayIso: string, days: number): string {
+  const [year, month, day] = dayIso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/** El Anuario IHM devuelve horas en UTC; en pantalla usamos hora peninsular. */
+function ihmUtcToMadridIso(utcDayIso: string, hora: string): string | null {
+  const match = hora.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return null;
+  }
+
+  const utcMillis = Date.UTC(
+    Number(utcDayIso.slice(0, 4)),
+    Number(utcDayIso.slice(5, 7)) - 1,
+    Number(utcDayIso.slice(8, 10)),
+    Number(match[1]),
+    Number(match[2]),
+  );
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(utcMillis));
+
+  const valueOf = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  return `${valueOf('year')}-${valueOf('month')}-${valueOf('day')}T${valueOf('hour')}:${valueOf('minute')}`;
+}
+
+async function fetchIhmTideRows(stationId: string, utcDayIso: string): Promise<IhmTideRow[]> {
+  const dateParam = utcDayIso.split('-').join('');
+  const payload = await fetchJson<IhmTideResponse>(
+    `${IHM_TIDES_URL}?request=gettide&id=${encodeURIComponent(stationId)}&format=json&date=${dateParam}`,
+  );
+  return asTideRows(payload.mareas.datos?.marea);
+}
+
 export async function fetchOfficialTides(
   coords: Coordinates,
   dayIso: string,
 ): Promise<{ tides: TideEvent[]; stationName: string | null }> {
   try {
     const stations = await fetchIhmStations();
-    const station = nearestStation(coords, stations);
+    const station = pickTideStation(coords, stations);
     if (!station) {
       return { tides: [], stationName: null };
     }
 
-    const dateParam = dayIso.split('-').join('');
-    const payload = await fetchJson<IhmTideResponse>(
-      `${IHM_TIDES_URL}?request=gettide&id=${encodeURIComponent(station.id)}&format=json&date=${dateParam}`,
+    const utcDays = [shiftIsoDate(dayIso, -1), dayIso];
+    const dailyRows = await Promise.all(
+      utcDays.map(async (utcDay) => ({
+        utcDay,
+        rows: await fetchIhmTideRows(station.id, utcDay),
+      })),
     );
 
     const tides: TideEvent[] = [];
-    for (const row of asTideRows(payload.mareas.datos?.marea)) {
-      const height = Number(row.altura.replace(',', '.'));
-      if (Number.isNaN(height) || !row.hora) {
-        continue;
+    for (const { utcDay, rows } of dailyRows) {
+      for (const row of rows) {
+        const height = Number(row.altura.replace(',', '.'));
+        const localTime = ihmUtcToMadridIso(utcDay, row.hora);
+        if (Number.isNaN(height) || !localTime || !localTime.startsWith(dayIso)) {
+          continue;
+        }
+        tides.push({
+          kind: row.tipo === 'pleamar' ? 'pleamar' : 'bajamar',
+          time: localTime,
+          height,
+        });
       }
-      tides.push({
-        kind: row.tipo === 'pleamar' ? 'pleamar' : 'bajamar',
-        time: `${dayIso}T${row.hora}`,
-        height,
-      });
     }
+
+    tides.sort((left, right) => left.time.localeCompare(right.time));
 
     return {
       tides,
-      stationName: payload.mareas.puerto || station.puerto,
+      stationName: station.puerto,
     };
   } catch {
     return { tides: [], stationName: null };

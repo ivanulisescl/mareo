@@ -375,7 +375,7 @@ function TidesCard({
         </View>
       )}
       <Text style={styles.fallbackHint}>
-        Anuario de Mareas del Instituto Hidrográfico de la Marina. Alturas sobre el cero hidrográfico.
+        Predicción IHM · hora peninsular. Alturas sobre el cero hidrográfico (no sobre el nivel medio del mar).
       </Text>
     </Card>
   );
