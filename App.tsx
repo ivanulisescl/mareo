@@ -43,6 +43,7 @@ import { useWeatherData } from './hooks/useWeatherData';
 import type { DashboardData, DayForecast, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
 import {
   degreesToCompass,
+  formatElapsedSince,
   formatForecastDayLabel,
   formatTideClock,
   formatUpdatedAt,
@@ -223,7 +224,30 @@ function Summary({ data }: { data: DashboardData }) {
   const current = data.weather.current;
   const marine = data.marine?.current;
   const nextTide = data.nextTide;
+  const previousTide = data.previousTide;
   const tideSize = getTideSize(data.tidesToday);
+  const tideTrend =
+    previousTide == null
+      ? null
+      : previousTide.kind === 'bajamar'
+        ? 'Subiendo'
+        : 'Bajando';
+  const tideElapsed =
+    previousTide == null
+      ? null
+      : formatElapsedSince(previousTide.time, data.weather.current.time);
+  const tideKindLabel = (kind: 'pleamar' | 'bajamar') =>
+    kind === 'pleamar' ? 'Pleamar' : 'Bajamar';
+  const tideLines = [
+    tideSize ? `${tideSize.charAt(0).toUpperCase()}${tideSize.slice(1)}` : null,
+    previousTide
+      ? `Anterior ${tideKindLabel(previousTide.kind)} ${formatTideClock(previousTide.time)}`
+      : null,
+    nextTide
+      ? `Próxima ${tideKindLabel(nextTide.kind)} ${formatTideClock(nextTide.time)}`
+      : 'Sin más mareas previstas',
+    tideTrend && tideElapsed ? `${tideTrend} desde hace ${tideElapsed}` : tideTrend,
+  ].filter((line): line is string => Boolean(line));
 
   return (
     <View style={styles.cards}>
@@ -257,16 +281,11 @@ function Summary({ data }: { data: DashboardData }) {
             }
           />
           <SummaryRow
-            icon={nextTide?.kind === 'bajamar' ? ArrowDown : ArrowUp}
+            icon={tideTrend === 'Subiendo' ? ArrowUp : ArrowDown}
             tint={COLORS.sea}
-            label="Próxima marea"
-            value={
-              nextTide
-                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)}${
-                    tideSize ? ` · marea ${tideSize}` : ''
-                  }`
-                : 'Sin más mareas hoy'
-            }
+            label="Marea"
+            value={tideLines[0] ?? 'Sin datos'}
+            details={tideLines.slice(1)}
           />
         </View>
       </Card>
@@ -418,11 +437,13 @@ function SummaryRow({
   tint,
   label,
   value,
+  details,
 }: {
   icon: LucideIcon;
   tint: string;
   label: string;
   value: string;
+  details?: string[];
 }) {
   return (
     <View style={styles.summaryRow}>
@@ -432,6 +453,11 @@ function SummaryRow({
       <View style={styles.tideInfo}>
         <Text style={styles.metricLabel}>{label}</Text>
         <Text style={styles.summaryRowValue}>{value}</Text>
+        {details?.map((line) => (
+          <Text key={line} style={styles.summaryRowDetail}>
+            {line}
+          </Text>
+        ))}
       </View>
     </View>
   );
@@ -997,7 +1023,7 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     backgroundColor: COLORS.chip,
     borderRadius: 14,
@@ -1007,6 +1033,11 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '700',
+  },
+  summaryRowDetail: {
+    color: COLORS.muted,
+    fontSize: 13,
+    marginTop: 2,
   },
   tabBarSafe: {
     backgroundColor: 'rgba(4, 16, 28, 0.96)',

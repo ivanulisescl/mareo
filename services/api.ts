@@ -334,6 +334,7 @@ export async function fetchOfficialTides(
       })),
     );
 
+    const minDayIso = shiftIsoDate(startDayIso, -1);
     const endDayIso = shiftIsoDate(startDayIso, dayCount);
     const tidesByDay: Record<string, TideEvent[]> = {};
 
@@ -345,7 +346,7 @@ export async function fetchOfficialTides(
           continue;
         }
         const localDay = localTime.slice(0, 10);
-        if (localDay < startDayIso || localDay >= endDayIso) {
+        if (localDay < minDayIso || localDay >= endDayIso) {
           continue;
         }
         if (!tidesByDay[localDay]) {

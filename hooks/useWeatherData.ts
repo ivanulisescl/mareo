@@ -12,7 +12,7 @@ import {
   fetchWeatherAndMarine,
 } from '../services/api';
 import {
-  getNextTide,
+  getSurroundingTides,
   type Coordinates,
   type DashboardData,
   type LocationChoice,
@@ -114,13 +114,20 @@ export function useWeatherData() {
       const dayIso = weather.current.time.slice(0, 10);
       const { tidesByDay, stationName } = await fetchOfficialTides(coords, dayIso, FORECAST_DAYS);
       const tidesToday = tidesByDay[dayIso] ?? [];
-      const nextTide = getNextTide(tidesToday, weather.current.time);
+      const tideTimeline = Object.values(tidesByDay)
+        .flat()
+        .sort((left, right) => left.time.localeCompare(right.time));
+      const { previous: previousTide, next: nextTide } = getSurroundingTides(
+        tideTimeline,
+        weather.current.time,
+      );
 
       setLocationChoice(choice);
       setData({
         weather,
         marine,
         tidesToday,
+        previousTide,
         nextTide,
         tideStationName: stationName,
         forecastDays: buildDayForecasts(weather, marine, tidesByDay),

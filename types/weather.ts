@@ -113,6 +113,7 @@ export type DashboardData = {
   weather: WeatherApiResponse;
   marine: MarineApiResponse | null;
   tidesToday: TideEvent[];
+  previousTide: TideEvent | null;
   nextTide: TideEvent | null;
   tideStationName: string | null;
   forecastDays: DayForecast[];
@@ -254,18 +255,53 @@ function naiveMinutes(isoTime: string): number | null {
   return Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) / 60000;
 }
 
-export function getNextTide(tides: TideEvent[], nowIso: string): TideEvent | null {
+export function getSurroundingTides(
+  tides: TideEvent[],
+  nowIso: string,
+): { previous: TideEvent | null; next: TideEvent | null } {
   const now = naiveMinutes(nowIso);
   if (now == null) {
-    return tides.length > 0 ? tides[0] : null;
+    return { previous: null, next: tides[0] ?? null };
   }
+
+  let previous: TideEvent | null = null;
+  let next: TideEvent | null = null;
 
   for (const tide of tides) {
     const tideMinutes = naiveMinutes(tide.time);
-    if (tideMinutes != null && tideMinutes >= now - 5) {
-      return tide;
+    if (tideMinutes == null) {
+      continue;
+    }
+    if (tideMinutes <= now) {
+      previous = tide;
+    } else {
+      next = tide;
+      break;
     }
   }
 
-  return null;
+  return { previous, next };
+}
+
+export function formatElapsedSince(fromIso: string, nowIso: string): string | null {
+  const from = naiveMinutes(fromIso);
+  const now = naiveMinutes(nowIso);
+  if (from == null || now == null) {
+    return null;
+  }
+
+  const minutes = Math.max(0, now - from);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) {
+    return `${rest} min`;
+  }
+  if (rest === 0) {
+    return `${hours} h`;
+  }
+  return `${hours} h ${rest} min`;
+}
+
+export function getNextTide(tides: TideEvent[], nowIso: string): TideEvent | null {
+  return getSurroundingTides(tides, nowIso).next;
 }
