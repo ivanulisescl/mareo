@@ -295,16 +295,6 @@ function Dashboard({ data }: { data: DashboardData }) {
             }
             tint={COLORS.sea}
           />
-          <Metric
-            icon={Droplets}
-            label="Nivel / marea"
-            value={
-              marine?.sea_level_height_msl != null
-                ? `${formatMetric(marine.sea_level_height_msl, 2)} m`
-                : '—'
-            }
-            tint={COLORS.sea}
-          />
         </View>
         {data.marine == null ? (
           <Text style={styles.fallbackHint}>
@@ -313,7 +303,11 @@ function Dashboard({ data }: { data: DashboardData }) {
         ) : null}
       </Card>
 
-      <TidesCard tides={data.tidesToday} nextTide={data.nextTide} />
+      <TidesCard
+        tides={data.tidesToday}
+        nextTide={data.nextTide}
+        stationName={data.tideStationName}
+      />
     </View>
   );
 }
@@ -321,13 +315,18 @@ function Dashboard({ data }: { data: DashboardData }) {
 function TidesCard({
   tides,
   nextTide,
+  stationName,
 }: {
   tides: TideEvent[];
   nextTide: TideEvent | null;
+  stationName: string | null;
 }) {
   return (
     <Card>
       <CardHeader icon={Waves} tint={COLORS.sea} title="Mareas de hoy" />
+      {stationName ? (
+        <Text style={styles.heroCaption}>Estación: {stationName}</Text>
+      ) : null}
       {nextTide ? (
         <Text style={styles.heroCaption}>
           Próxima {nextTide.kind === 'pleamar' ? 'pleamar' : 'bajamar'}: {formatTideClock(nextTide.time)} ·{' '}
@@ -376,7 +375,7 @@ function TidesCard({
         </View>
       )}
       <Text style={styles.fallbackHint}>
-        Altura respecto al nivel medio del mar (Open-Meteo). Orientativa, no usar para navegación.
+        Anuario de Mareas del Instituto Hidrográfico de la Marina. Alturas sobre el cero hidrográfico.
       </Text>
     </Card>
   );

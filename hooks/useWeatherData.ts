@@ -3,10 +3,11 @@ import * as Location from 'expo-location';
 import {
   DEFAULT_COASTAL_COORDS,
   DEFAULT_COASTAL_LABEL,
+  fetchOfficialTides,
   fetchPlaceName,
   fetchWeatherAndMarine,
 } from '../services/api';
-import { extractDailyTides, getNextTide, type Coordinates, type DashboardData } from '../types/weather';
+import { getNextTide, type Coordinates, type DashboardData } from '../types/weather';
 
 function looksLikeCoordinates(value: string): boolean {
   return /^-?\d+(?:[.,]\d+)?\s*,\s*-?\d+(?:[.,]\d+)?$/.test(value.trim());
@@ -102,7 +103,7 @@ export function useWeatherData() {
       ]);
 
       const dayIso = weather.current.time.slice(0, 10);
-      const tidesToday = extractDailyTides(marine?.hourly, dayIso);
+      const { tides: tidesToday, stationName } = await fetchOfficialTides(coords, dayIso);
       const nextTide = getNextTide(tidesToday, weather.current.time);
 
       setData({
@@ -110,6 +111,7 @@ export function useWeatherData() {
         marine,
         tidesToday,
         nextTide,
+        tideStationName: stationName,
         coordinates: coords,
         placeLabel,
         usingFallbackLocation: usingFallback,
