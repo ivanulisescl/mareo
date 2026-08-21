@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Mareo",
+    "name": "CliMarEo",
     "slug": "Mareo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Mareo necesita tu ubicación para mostrar el tiempo, el viento y las condiciones marinas de tu zona."
+        "NSLocationWhenInUseUsageDescription": "CliMarEo necesita tu ubicación para mostrar el tiempo, el viento y las condiciones marinas de tu zona."
       }
     },
     "android": {
@@ -35,7 +35,7 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "Mareo"
+      "name": "CliMarEo"
     },
     "experiments": {
       "baseUrl": "/mareo"
@@ -44,7 +44,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Mareo necesita tu ubicación para mostrar el tiempo, el viento y las condiciones marinas de tu zona."
+          "locationWhenInUsePermission": "CliMarEo necesita tu ubicación para mostrar el tiempo, el viento y las condiciones marinas de tu zona."
         }
       ]
     ]

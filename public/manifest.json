@@ -1,7 +1,7 @@
 {
   "id": "/mareo/",
-  "name": "Mareo",
-  "short_name": "Mareo",
+  "name": "CliMarEo",
+  "short_name": "CliMarEo",
   "description": "Climatología y estado de la mar",
   "start_url": "./",
   "scope": "./",
