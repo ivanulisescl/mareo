@@ -18,6 +18,7 @@ import {
   LayoutGrid,
   List,
   MapPin,
+  Moon,
   Navigation2,
   Sun,
   Thermometer,
@@ -47,6 +48,7 @@ import {
   formatForecastDayLabel,
   formatTideClock,
   formatUpdatedAt,
+  getMoonPhase,
   getSeaState,
   getTideSize,
   getWeatherInfo,
@@ -59,6 +61,7 @@ const COLORS = {
   wind: '#67E8F9',
   sea: '#2DD4BF',
   temp: '#FBBF24',
+  moon: '#C7D2FE',
   card: 'rgba(14, 36, 58, 0.82)',
   border: 'rgba(56, 189, 248, 0.18)',
   chip: 'rgba(56, 189, 248, 0.12)',
@@ -248,6 +251,7 @@ function Summary({ data }: { data: DashboardData }) {
       : 'Sin más mareas previstas',
     tideTrend && tideElapsed ? `${tideTrend} desde hace ${tideElapsed}` : tideTrend,
   ].filter((line): line is string => Boolean(line));
+  const moon = getMoonPhase(data.weather.current.time);
 
   return (
     <View style={styles.cards}>
@@ -279,6 +283,12 @@ function Summary({ data }: { data: DashboardData }) {
                 ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
                 : '—'
             }
+          />
+          <SummaryRow
+            icon={Moon}
+            tint={COLORS.moon}
+            label="Luna"
+            value={`${moon.label} · ${moon.illumination}%`}
           />
           <SummaryRow
             icon={tideTrend === 'Subiendo' ? ArrowUp : ArrowDown}
@@ -468,6 +478,7 @@ function Dashboard({ data }: { data: DashboardData }) {
   const WeatherIcon = WEATHER_ICONS[weather.icon];
   const current = data.weather.current;
   const marine = data.marine?.current;
+  const moon = getMoonPhase(current.time);
 
   return (
     <View style={styles.cards}>
@@ -487,6 +498,14 @@ function Dashboard({ data }: { data: DashboardData }) {
             label="Código WMO"
             value={String(current.weather_code)}
             tint={COLORS.accent}
+          />
+        </View>
+        <View style={styles.metricsRow}>
+          <Metric
+            icon={Moon}
+            label="Luna"
+            value={`${moon.label} · ${moon.illumination}%`}
+            tint={COLORS.moon}
           />
         </View>
       </Card>

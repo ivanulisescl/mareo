@@ -255,6 +255,38 @@ function naiveMinutes(isoTime: string): number | null {
   return Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) / 60000;
 }
 
+const MOON_PHASES = [
+  'Luna nueva',
+  'Creciente',
+  'Cuarto creciente',
+  'Gibosa creciente',
+  'Luna llena',
+  'Gibosa menguante',
+  'Cuarto menguante',
+  'Menguante',
+] as const;
+
+export type MoonPhaseInfo = {
+  label: string;
+  illumination: number;
+};
+
+/** Fase lunar aproximada a partir de la fecha (ciclo sinódico). */
+export function getMoonPhase(isoTime: string): MoonPhaseInfo {
+  const synodicDays = 29.530588853;
+  const knownNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const now = naiveMinutes(isoTime) ?? Date.now() / 60000;
+  const ageDays = ((now * 60000 - knownNewMoon) / 86400000) % synodicDays;
+  const cycle = ((ageDays % synodicDays) + synodicDays) % synodicDays / synodicDays;
+  const illumination = Math.round(((1 - Math.cos(cycle * 2 * Math.PI)) / 2) * 100);
+  const index = Math.round(cycle * 8) % 8;
+
+  return {
+    label: MOON_PHASES[index],
+    illumination,
+  };
+}
+
 export function getSurroundingTides(
   tides: TideEvent[],
   nowIso: string,
