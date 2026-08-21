@@ -19,6 +19,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo export -p web
+      - run: ls -la dist && test -f dist/apple-touch-icon.png && test -f dist/manifest.json
       - name: Publish dist to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
