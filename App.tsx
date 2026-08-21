@@ -12,6 +12,8 @@ import {
   CloudSnow,
   CloudSun,
   Droplets,
+  LayoutGrid,
+  List,
   MapPin,
   Navigation2,
   Sun,
@@ -19,7 +21,7 @@ import {
   Waves,
   Wind,
 } from 'lucide-react-native';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -63,6 +65,8 @@ const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
   storm: CloudLightning,
 };
 
+type AppTab = 'resumen' | 'completa';
+
 function formatMetric(value: number | null | undefined, digits = 1): string {
   if (value == null || Number.isNaN(value)) {
     return '—';
@@ -72,6 +76,7 @@ function formatMetric(value: number | null | undefined, digits = 1): string {
 
 export default function App() {
   const { data, loading, refreshing, error, refresh } = useWeatherData();
+  const [tab, setTab] = useState<AppTab>('resumen');
 
   return (
     <SafeAreaProvider>
@@ -85,6 +90,7 @@ export default function App() {
             </View>
           ) : (
             <ScrollView
+              key={tab}
               contentContainerStyle={styles.content}
               refreshControl={
                 <RefreshControl
@@ -97,9 +103,12 @@ export default function App() {
             >
               <Header data={data} />
               {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
-              {data ? <Dashboard data={data} /> : null}
+              {data ? tab === 'resumen' ? <Summary data={data} /> : <Dashboard data={data} /> : null}
             </ScrollView>
           )}
+        </SafeAreaView>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBarSafe}>
+          <BottomNav tab={tab} onChange={setTab} />
         </SafeAreaView>
       </LinearGradient>
     </SafeAreaProvider>
@@ -127,6 +136,74 @@ function Header({ data }: { data: DashboardData | null }) {
           Actualizado {formatUpdatedAt(data.weather.current.time)}
         </Text>
       ) : null}
+    </View>
+  );
+}
+
+function Summary({ data }: { data: DashboardData }) {
+  const weather = getWeatherInfo(data.weather.current.weather_code);
+  const WeatherIcon = WEATHER_ICONS[weather.icon];
+  const current = data.weather.current;
+  const marine = data.marine?.current;
+  const nextTide = data.nextTide;
+
+  return (
+    <View style={styles.cards}>
+      <Card>
+        <View style={styles.summaryHero}>
+          <WeatherIcon size={28} color={COLORS.temp} />
+          <Text style={styles.summaryTemp}>{Math.round(current.temperature_2m)}°</Text>
+          <Text style={styles.summaryWeather}>{weather.label}</Text>
+        </View>
+        <View style={styles.summaryList}>
+          <SummaryRow
+            icon={Wind}
+            tint={COLORS.wind}
+            label="Viento"
+            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}`}
+          />
+          <SummaryRow
+            icon={Waves}
+            tint={COLORS.sea}
+            label="Mar"
+            value={`${formatMetric(marine?.wave_height)} m · ${getSeaState(marine?.wave_height ?? null)}`}
+          />
+          <SummaryRow
+            icon={nextTide?.kind === 'bajamar' ? ArrowDown : ArrowUp}
+            tint={COLORS.sea}
+            label="Próxima marea"
+            value={
+              nextTide
+                ? `${nextTide.kind === 'pleamar' ? 'Pleamar' : 'Bajamar'} ${formatTideClock(nextTide.time)}`
+                : 'Sin más mareas hoy'
+            }
+          />
+        </View>
+      </Card>
+    </View>
+  );
+}
+
+function SummaryRow({
+  icon: Icon,
+  tint,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  tint: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.summaryRow}>
+      <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
+        <Icon size={16} color={tint} />
+      </View>
+      <View style={styles.tideInfo}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={styles.summaryRowValue}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -374,13 +451,52 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
+function BottomNav({ tab, onChange }: { tab: AppTab; onChange: (next: AppTab) => void }) {
+  return (
+    <View style={styles.tabBar}>
+      <TabButton
+        active={tab === 'resumen'}
+        icon={LayoutGrid}
+        label="Resumen"
+        onPress={() => onChange('resumen')}
+      />
+      <TabButton
+        active={tab === 'completa'}
+        icon={List}
+        label="Completa"
+        onPress={() => onChange('completa')}
+      />
+    </View>
+  );
+}
+
+function TabButton({
+  active,
+  icon: Icon,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  icon: LucideIcon;
+  label: string;
+  onPress: () => void;
+}) {
+  const color = active ? COLORS.accent : COLORS.muted;
+  return (
+    <Pressable onPress={onPress} style={[styles.tabButton, active ? styles.tabButtonActive : null]}>
+      <Icon size={20} color={color} />
+      <Text style={[styles.tabLabel, { color }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
   content: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   centered: {
     flex: 1,
@@ -568,6 +684,68 @@ const styles = StyleSheet.create({
   },
   retryLabel: {
     color: '#FECACA',
+    fontWeight: '700',
+  },
+  summaryHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  summaryTemp: {
+    color: COLORS.text,
+    fontSize: 40,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  summaryWeather: {
+    color: COLORS.muted,
+    fontSize: 15,
+    flex: 1,
+  },
+  summaryList: {
+    gap: 10,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    padding: 12,
+  },
+  summaryRowValue: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  tabBarSafe: {
+    backgroundColor: 'rgba(4, 16, 28, 0.96)',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 10,
+    borderRadius: 14,
+  },
+  tabButtonActive: {
+    backgroundColor: COLORS.chip,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  tabLabel: {
+    fontSize: 12,
     fontWeight: '700',
   },
 });
