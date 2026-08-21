@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#04101C",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -26,7 +27,13 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Mareo"
+    },
+    "experiments": {
+      "baseUrl": "/mareo"
     },
     "plugins": [
       [
