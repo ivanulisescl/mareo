@@ -238,7 +238,7 @@ function Summary({ data }: { data: DashboardData }) {
             icon={Wind}
             tint={COLORS.wind}
             label="Viento"
-            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}`}
+            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)} · Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
           />
           <SummaryRow
             icon={Waves}
