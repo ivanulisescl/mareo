@@ -3,6 +3,8 @@ export type Coordinates = {
   longitude: number;
 };
 
+export type LocationChoice = 'gijon' | 'colunga' | 'gps';
+
 export type WeatherIconKey =
   | 'sun'
   | 'cloudSun'
@@ -78,7 +80,8 @@ export type DashboardData = {
   tideStationName: string | null;
   coordinates: Coordinates;
   placeLabel: string;
-  usingFallbackLocation: boolean;
+  locationChoice: LocationChoice;
+  usingGps: boolean;
 };
 
 export type WeatherInfo = {

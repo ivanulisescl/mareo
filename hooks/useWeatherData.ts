@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import {
-  DEFAULT_COASTAL_COORDS,
-  DEFAULT_COASTAL_LABEL,
+  COLUNGA_COORDS,
+  COLUNGA_LABEL,
+  GIJON_COORDS,
+  GIJON_LABEL,
   fetchOfficialTides,
   fetchPlaceName,
   fetchWeatherAndMarine,
 } from '../services/api';
-import { getNextTide, type Coordinates, type DashboardData } from '../types/weather';
+import {
+  getNextTide,
+  type Coordinates,
+  type DashboardData,
+  type LocationChoice,
+} from '../types/weather';
 
 function looksLikeCoordinates(value: string): boolean {
   return /^-?\d+(?:[.,]\d+)?\s*,\s*-?\d+(?:[.,]\d+)?$/.test(value.trim());
@@ -26,15 +33,10 @@ function formatExpoPlace(place: Location.LocationGeocodedAddress | null): string
     return null;
   }
 
-  const region = place.region && place.region !== locality ? place.region : null;
-  return region ? `${locality}, ${region}` : locality;
+  return locality.split(',')[0]?.trim() || locality;
 }
 
-async function resolvePlaceLabel(coords: Coordinates, usingFallback: boolean): Promise<string> {
-  if (usingFallback) {
-    return DEFAULT_COASTAL_LABEL;
-  }
-
+async function resolveGpsPlaceName(coords: Coordinates): Promise<string> {
   try {
     const [place] = await Location.reverseGeocodeAsync(coords);
     const fromDevice = formatExpoPlace(place ?? null);
@@ -48,37 +50,29 @@ async function resolvePlaceLabel(coords: Coordinates, usingFallback: boolean): P
   try {
     const fromApi = await fetchPlaceName(coords);
     if (fromApi) {
-      return fromApi;
+      return fromApi.split(',')[0]?.trim() || fromApi;
     }
   } catch {
     // Si tampoco hay nombre, no mostramos coordenadas.
   }
 
-  return DEFAULT_COASTAL_LABEL;
+  return 'Ubicación actual';
 }
 
-async function resolveCoordinates(): Promise<{ coords: Coordinates; usingFallback: boolean }> {
+async function readGpsCoordinates(): Promise<Coordinates> {
   const { status } = await Location.requestForegroundPermissionsAsync();
-
   if (status !== 'granted') {
-    return { coords: DEFAULT_COASTAL_COORDS, usingFallback: true };
+    throw new Error('Permiso de ubicación denegado');
   }
 
-  try {
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
+  const position = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.Balanced,
+  });
 
-    return {
-      coords: {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      },
-      usingFallback: false,
-    };
-  } catch {
-    return { coords: DEFAULT_COASTAL_COORDS, usingFallback: true };
-  }
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+  };
 }
 
 export function useWeatherData() {
@@ -86,8 +80,9 @@ export function useWeatherData() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationChoice, setLocationChoice] = useState<LocationChoice>('colunga');
 
-  const load = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh: boolean, choice: LocationChoice) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -96,16 +91,29 @@ export function useWeatherData() {
     setError(null);
 
     try {
-      const { coords, usingFallback } = await resolveCoordinates();
-      const [{ weather, marine }, placeLabel] = await Promise.all([
-        fetchWeatherAndMarine(coords),
-        resolvePlaceLabel(coords, usingFallback),
-      ]);
+      let coords: Coordinates;
+      let placeLabel: string;
+      let usingGps = false;
 
+      if (choice === 'gijon') {
+        coords = GIJON_COORDS;
+        placeLabel = GIJON_LABEL;
+      } else if (choice === 'colunga') {
+        coords = COLUNGA_COORDS;
+        placeLabel = COLUNGA_LABEL;
+      } else {
+        coords = await readGpsCoordinates();
+        usingGps = true;
+        const locality = await resolveGpsPlaceName(coords);
+        placeLabel = `${locality} (ubicación actual)`;
+      }
+
+      const { weather, marine } = await fetchWeatherAndMarine(coords);
       const dayIso = weather.current.time.slice(0, 10);
       const { tides: tidesToday, stationName } = await fetchOfficialTides(coords, dayIso);
       const nextTide = getNextTide(tidesToday, weather.current.time);
 
+      setLocationChoice(choice);
       setData({
         weather,
         marine,
@@ -114,12 +122,17 @@ export function useWeatherData() {
         tideStationName: stationName,
         coordinates: coords,
         placeLabel,
-        usingFallbackLocation: usingFallback,
+        locationChoice: choice,
+        usingGps,
       });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'No se pudieron cargar las condiciones actuales';
-      setError(message);
+      setError(
+        choice === 'gps'
+          ? 'No se pudo obtener la ubicación actual. Revisa el permiso de localización.'
+          : message,
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -127,12 +140,19 @@ export function useWeatherData() {
   }, []);
 
   useEffect(() => {
-    void load(false);
+    void load(false, 'colunga');
   }, [load]);
 
   const refresh = useCallback(() => {
-    void load(true);
-  }, [load]);
+    void load(true, locationChoice);
+  }, [load, locationChoice]);
 
-  return { data, loading, refreshing, error, refresh };
+  const selectLocation = useCallback(
+    (choice: LocationChoice) => {
+      void load(true, choice);
+    },
+    [load],
+  );
+
+  return { data, loading, refreshing, error, refresh, locationChoice, selectLocation };
 }

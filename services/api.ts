@@ -8,13 +8,23 @@ import type {
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
 const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 
-/** Costa de Colunga (Asturias): fallback si el usuario deniega el GPS. */
-export const DEFAULT_COASTAL_COORDS: Coordinates = {
+/** Costa de Colunga (Asturias). */
+export const COLUNGA_COORDS: Coordinates = {
   latitude: 43.4849,
   longitude: -5.2712,
 };
 
-export const DEFAULT_COASTAL_LABEL = 'Colunga (Asturias)';
+export const COLUNGA_LABEL = 'Colunga';
+
+export const GIJON_COORDS: Coordinates = {
+  latitude: 43.545,
+  longitude: -5.6635,
+};
+
+export const GIJON_LABEL = 'Gijón';
+
+export const DEFAULT_COASTAL_COORDS = COLUNGA_COORDS;
+export const DEFAULT_COASTAL_LABEL = COLUNGA_LABEL;
 
 type ReverseGeocodeResponse = {
   city?: string;

@@ -4,6 +4,8 @@ import type { LucideIcon } from 'lucide-react-native';
 import {
   ArrowDown,
   ArrowUp,
+  Check,
+  ChevronDown,
   Cloud,
   CloudDrizzle,
   CloudFog,
@@ -24,6 +26,7 @@ import {
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -33,7 +36,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useWeatherData } from './hooks/useWeatherData';
-import type { DashboardData, TideEvent, WeatherIconKey } from './types/weather';
+import type { DashboardData, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
 import {
   degreesToCompass,
   formatTideClock,
@@ -75,7 +78,8 @@ function formatMetric(value: number | null | undefined, digits = 1): string {
 }
 
 export default function App() {
-  const { data, loading, refreshing, error, refresh } = useWeatherData();
+  const { data, loading, refreshing, error, refresh, locationChoice, selectLocation } =
+    useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
 
   return (
@@ -101,7 +105,11 @@ export default function App() {
                 />
               }
             >
-              <Header data={data} />
+              <Header
+                data={data}
+                locationChoice={locationChoice}
+                onSelectLocation={selectLocation}
+              />
               {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
               {data ? tab === 'resumen' ? <Summary data={data} /> : <Dashboard data={data} /> : null}
             </ScrollView>
@@ -115,27 +123,76 @@ export default function App() {
   );
 }
 
-function Header({ data }: { data: DashboardData | null }) {
+const LOCATION_OPTIONS: Array<{ id: LocationChoice; label: string }> = [
+  { id: 'gijon', label: 'Gijón' },
+  { id: 'colunga', label: 'Colunga' },
+  { id: 'gps', label: 'Ubicación actual' },
+];
+
+function Header({
+  data,
+  locationChoice,
+  onSelectLocation,
+}: {
+  data: DashboardData | null;
+  locationChoice: LocationChoice;
+  onSelectLocation: (choice: LocationChoice) => void;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   return (
     <View style={styles.header}>
       <Text style={styles.kicker}>Climatología y estado de la mar</Text>
       <Text style={styles.title}>Mareo</Text>
-      <View style={styles.locationRow}>
+      <Pressable
+        onPress={() => setPickerOpen(true)}
+        style={styles.locationRow}
+        accessibilityRole="button"
+        accessibilityLabel="Cambiar localidad"
+      >
         <MapPin size={16} color={COLORS.accent} />
         <Text style={styles.locationText}>
           {data?.placeLabel ?? 'Obteniendo ubicación...'}
         </Text>
-      </View>
-      {data?.usingFallbackLocation ? (
-        <Text style={styles.fallbackHint}>
-          GPS no disponible. Mostrando Colunga (Asturias).
-        </Text>
-      ) : null}
+        <ChevronDown size={18} color={COLORS.accent} />
+      </Pressable>
       {data ? (
         <Text style={styles.updated}>
           Actualizado {formatUpdatedAt(data.weather.current.time)}
         </Text>
       ) : null}
+
+      <Modal
+        visible={pickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerOpen(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPickerOpen(false)} />
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Elegir localidad</Text>
+            {LOCATION_OPTIONS.map((option) => {
+              const selected = locationChoice === option.id;
+              return (
+                <Pressable
+                  key={option.id}
+                  onPress={() => {
+                    onSelectLocation(option.id);
+                    setPickerOpen(false);
+                  }}
+                  style={[styles.pickerOption, selected ? styles.pickerOptionActive : null]}
+                >
+                  <Text style={[styles.pickerOptionLabel, selected ? styles.pickerOptionLabelActive : null]}>
+                    {option.label}
+                  </Text>
+                  {selected ? <Check size={18} color={COLORS.accent} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -529,6 +586,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 10,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    paddingVertical: 4,
+    paddingRight: 8,
   },
   locationText: {
     color: COLORS.text,
@@ -684,6 +745,48 @@ const styles = StyleSheet.create({
   retryLabel: {
     color: '#FECACA',
     fontWeight: '700',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(4, 16, 28, 0.72)',
+    justifyContent: 'flex-end',
+    padding: 16,
+    paddingBottom: 28,
+  },
+  pickerSheet: {
+    backgroundColor: '#0B1F33',
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 16,
+    gap: 8,
+  },
+  pickerTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  pickerOptionActive: {
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  pickerOptionLabel: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  pickerOptionLabelActive: {
+    color: COLORS.accent,
   },
   summaryHero: {
     flexDirection: 'row',
