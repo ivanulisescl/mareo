@@ -34,6 +34,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 
 const headerLogo = require('./assets/logo.png');
@@ -48,6 +50,8 @@ import {
   getMoonPhase,
   getSeaState,
   getTideSize,
+  getTodayHourlyWaves,
+  getTodayHourlyWeather,
   getTodayHourlyWind,
   getWeatherInfo,
 } from './types/weather';
@@ -304,14 +308,21 @@ function Header({
 function Summary({ data }: { data: DashboardData }) {
   const { COLORS, styles } = useAppChrome();
   const [windOpen, setWindOpen] = useState(false);
+  const [weatherOpen, setWeatherOpen] = useState(false);
+  const [seaOpen, setSeaOpen] = useState(false);
+  const [tidesOpen, setTidesOpen] = useState(false);
   const hourlyWind = useMemo(() => getTodayHourlyWind(data.weather), [data.weather]);
+  const hourlyWeather = useMemo(() => getTodayHourlyWeather(data.weather), [data.weather]);
+  const hourlyWaves = useMemo(
+    () => getTodayHourlyWaves(data.marine, data.weather.current.time),
+    [data.marine, data.weather.current.time],
+  );
   const weather = getWeatherInfo(data.weather.current.weather_code);
   const WeatherIcon = WEATHER_ICONS[weather.icon];
   const current = data.weather.current;
   const marine = data.marine?.current;
   const nextTide = data.nextTide;
   const previousTide = data.previousTide;
-  const tideSize = getTideSize(data.tidesToday);
   const tideTrend =
     previousTide == null
       ? null
@@ -322,37 +333,66 @@ function Summary({ data }: { data: DashboardData }) {
     previousTide == null
       ? null
       : formatElapsedSince(previousTide.time, data.weather.current.time);
-  const tideKindLabel = (kind: 'pleamar' | 'bajamar') =>
-    kind === 'pleamar' ? 'Pleamar' : 'Bajamar';
   const tideHeadline =
     tideTrend && tideElapsed
       ? `${tideTrend} desde hace ${tideElapsed}`
       : tideTrend ?? 'Sin datos';
-  const tideDetails = [
-    previousTide
-      ? `Anterior ${tideKindLabel(previousTide.kind)} ${formatTideClock(previousTide.time)}`
-      : null,
-    nextTide
-      ? `Próxima ${tideKindLabel(nextTide.kind)} ${formatTideClock(nextTide.time)}`
-      : 'Sin más mareas previstas',
-    tideSize ? `Marea ${tideSize}` : null,
-  ].filter((line): line is string => Boolean(line));
   const moon = getMoonPhase(data.weather.current.time);
 
   return (
     <View style={styles.cards}>
       <Card>
-        <View style={styles.summaryHero}>
-          <WeatherIcon size={28} color={COLORS.temp} />
-          <Text style={styles.summaryTemp}>{Math.round(current.temperature_2m)}°</Text>
-          <Text style={styles.summaryWeather}>{weather.label}</Text>
-        </View>
         <View style={styles.summaryList}>
           <SummaryRow
+            icon={WeatherIcon}
+            tint={COLORS.temp}
+            label="Tiempo"
+            value={`${Math.round(current.temperature_2m)}° · ${weather.label}`}
+            expandable
+            expanded={weatherOpen}
+            onToggle={() => setWeatherOpen((open) => !open)}
+            extra={
+              hourlyWeather.length === 0 ? (
+                <Text style={styles.summaryRowDetail}>Sin previsión horaria para hoy.</Text>
+              ) : (
+                <View style={styles.hourlyTable}>
+                  <View style={styles.hourlyLabels}>
+                    <View style={styles.hourlyLabelTime} />
+                    <Text style={styles.hourlyLabel}>Tiempo</Text>
+                    <Text style={styles.hourlyLabel}>Temp{'\n'}°C</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.hourlyScroll}
+                    contentContainerStyle={styles.hourlyScroller}
+                  >
+                    {hourlyWeather.map((hour) => {
+                      const hourWeather = getWeatherInfo(hour.weatherCode);
+                      const HourIcon = WEATHER_ICONS[hourWeather.icon];
+                      return (
+                        <View key={hour.time} style={styles.hourlyChip}>
+                          <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                          <View style={styles.hourlyIcon}>
+                            <HourIcon size={16} color={COLORS.temp} />
+                          </View>
+                          <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}</Text>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )
+            }
+          />
+          <SummaryRow
             icon={Wind}
+            leading={<WindCompass degrees={current.wind_direction_10m} size={34} />}
             tint={COLORS.wind}
             label="Viento"
-            value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)} · Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
+            value={`${formatMetric(current.wind_speed_10m, 0)} km/h · Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
+            accessibilityValue={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}. Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
             expandable
             expanded={windOpen}
             onToggle={() => setWindOpen((open) => !open)}
@@ -365,6 +405,7 @@ function Summary({ data }: { data: DashboardData }) {
                     <View style={styles.hourlyLabelTime} />
                     <Text style={styles.hourlyLabel}>Viento{'\n'}km/h</Text>
                     <Text style={styles.hourlyLabel}>Rachas{'\n'}km/h</Text>
+                    <Text style={styles.hourlyLabel}>Dir.</Text>
                   </View>
                   <ScrollView
                     horizontal
@@ -378,6 +419,9 @@ function Summary({ data }: { data: DashboardData }) {
                         <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
                         <Text style={styles.hourlyValue}>{formatMetric(hour.speed, 0)}</Text>
                         <Text style={styles.hourlyGusts}>{formatMetric(hour.gusts, 0)}</Text>
+                        <View style={styles.hourlyIcon}>
+                          <WindCompass degrees={hour.direction} size={22} />
+                        </View>
                       </View>
                     ))}
                   </ScrollView>
@@ -389,16 +433,37 @@ function Summary({ data }: { data: DashboardData }) {
             icon={Waves}
             tint={COLORS.sea}
             label="Mar"
-            value={`${getSeaState(marine?.wave_height ?? null)} · Olas de ${formatMetric(marine?.wave_height)} m`}
-          />
-          <SummaryRow
-            icon={Thermometer}
-            tint={COLORS.sea}
-            label="Agua"
-            value={
-              marine?.sea_surface_temperature != null
-                ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
-                : '—'
+            value={getSeaState(marine?.wave_height ?? null)}
+            expandable
+            expanded={seaOpen}
+            onToggle={() => setSeaOpen((open) => !open)}
+            extra={
+              hourlyWaves.length === 0 ? (
+                <Text style={styles.summaryRowDetail}>Sin previsión horaria para hoy.</Text>
+              ) : (
+                <View style={styles.hourlyTable}>
+                  <View style={styles.hourlyLabels}>
+                    <View style={styles.hourlyLabelTime} />
+                    <Text style={styles.hourlyLabel}>Olas{'\n'}m</Text>
+                    <Text style={styles.hourlyLabel}>Periodo{'\n'}s</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.hourlyScroll}
+                    contentContainerStyle={styles.hourlyScroller}
+                  >
+                    {hourlyWaves.map((hour) => (
+                      <View key={hour.time} style={styles.hourlyChip}>
+                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                        <Text style={styles.hourlyValue}>{formatMetric(hour.height)}</Text>
+                        <Text style={styles.hourlyGusts}>{formatMetric(hour.period, 0)}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )
             }
           />
           <SummaryRow
@@ -406,14 +471,33 @@ function Summary({ data }: { data: DashboardData }) {
             tint={COLORS.sea}
             label="Marea"
             value={tideHeadline}
-            details={tideDetails}
+            expandable
+            expanded={tidesOpen}
+            onToggle={() => setTidesOpen((open) => !open)}
+            extra={
+              <TideEventsList tides={data.tidesToday} nextTide={nextTide} nested />
+            }
           />
-          <SummaryRow
-            icon={Moon}
-            tint={COLORS.moon}
-            label="Luna"
-            value={`${moon.label} · ${moon.illumination}%`}
-          />
+          <View style={styles.summaryPair}>
+            <SummaryRow
+              icon={Thermometer}
+              tint={COLORS.sea}
+              label="Agua"
+              style={styles.summaryPairItem}
+              value={
+                marine?.sea_surface_temperature != null
+                  ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
+                  : '—'
+              }
+            />
+            <SummaryRow
+              icon={Moon}
+              tint={COLORS.moon}
+              label="Luna"
+              style={styles.summaryPairItem}
+              value={`${moon.label} · ${moon.illumination}%`}
+            />
+          </View>
         </View>
       </Card>
     </View>
@@ -423,7 +507,7 @@ function Summary({ data }: { data: DashboardData }) {
 function Forecast({ data }: { data: DashboardData }) {
   const { styles } = useAppChrome();
   const todayIso = data.weather.current.time.slice(0, 10);
-  const [openDate, setOpenDate] = useState(data.forecastDays[0]?.date ?? null);
+  const [openDate, setOpenDate] = useState<string | null>(null);
 
   if (data.forecastDays.length === 0) {
     return (
@@ -525,36 +609,7 @@ function ForecastDayCard({
               day.waterTemperature != null ? `${formatMetric(day.waterTemperature, 1)}°` : '—'
             }
           />
-          {day.tides.length === 0 ? (
-            <Text style={styles.fallbackHint}>Sin datos de marea para este día.</Text>
-          ) : (
-            <View style={styles.tideList}>
-              {day.tides.map((tide) => {
-                const isHigh = tide.kind === 'pleamar';
-                return (
-                  <View key={`${tide.kind}-${tide.time}`} style={styles.tideRow}>
-                    <View
-                      style={[
-                        styles.iconBadge,
-                        { backgroundColor: isHigh ? `${COLORS.wind}22` : `${COLORS.temp}22` },
-                      ]}
-                    >
-                      {isHigh ? (
-                        <ArrowUp size={16} color={COLORS.wind} />
-                      ) : (
-                        <ArrowDown size={16} color={COLORS.temp} />
-                      )}
-                    </View>
-                    <View style={styles.tideInfo}>
-                      <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
-                      <Text style={styles.tideMeta}>{formatTideClock(tide.time)}</Text>
-                    </View>
-                    <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          <TideEventsList tides={day.tides} />
         </View>
       ) : null}
     </Card>
@@ -563,6 +618,7 @@ function ForecastDayCard({
 
 function SummaryRow({
   icon: Icon,
+  leading,
   tint,
   label,
   value,
@@ -571,26 +627,34 @@ function SummaryRow({
   expanded,
   onToggle,
   extra,
+  accessibilityValue,
+  style,
 }: {
   icon: LucideIcon;
+  leading?: ReactNode;
   tint: string;
   label: string;
-  value: string;
+  value: ReactNode;
   details?: string[];
   expandable?: boolean;
   expanded?: boolean;
   onToggle?: () => void;
   extra?: ReactNode;
+  accessibilityValue?: string;
+  style?: StyleProp<ViewStyle>;
 }) {
   const { COLORS, styles } = useAppChrome();
+  const valueText = accessibilityValue ?? (typeof value === 'string' ? value : '');
   const header = (
     <>
-      <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
-        <Icon size={16} color={tint} />
-      </View>
+      {leading ?? (
+        <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
+          <Icon size={16} color={tint} />
+        </View>
+      )}
       <View style={styles.tideInfo}>
         <Text style={styles.metricLabel}>{label}</Text>
-        <Text style={styles.summaryRowValue}>{value}</Text>
+        {typeof value === 'string' ? <Text style={styles.summaryRowValue}>{value}</Text> : value}
         {details?.map((line) => (
           <Text key={line} style={styles.summaryRowDetail}>
             {line}
@@ -609,12 +673,12 @@ function SummaryRow({
 
   if (expandable) {
     return (
-      <View style={styles.summaryRowStack}>
+      <View style={[styles.summaryRowStack, style]}>
         <Pressable
           onPress={onToggle}
           style={styles.summaryRowHeader}
           accessibilityRole="button"
-          accessibilityLabel={`${label}. ${expanded ? 'Ocultar previsión horaria' : 'Ver previsión horaria'}`}
+          accessibilityLabel={`${label}${valueText ? `. ${valueText}` : ''}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
         >
           {header}
         </Pressable>
@@ -623,7 +687,7 @@ function SummaryRow({
     );
   }
 
-  return <View style={styles.summaryRow}>{header}</View>;
+  return <View style={[styles.summaryRow, style]}>{header}</View>;
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
@@ -724,6 +788,64 @@ function Dashboard({ data }: { data: DashboardData }) {
   );
 }
 
+function TideEventsList({
+  tides,
+  nextTide,
+  nested,
+}: {
+  tides: TideEvent[];
+  nextTide?: TideEvent | null;
+  nested?: boolean;
+}) {
+  const { COLORS, styles } = useAppChrome();
+  const tideSize = getTideSize(tides);
+
+  if (tides.length === 0) {
+    return <Text style={styles.fallbackHint}>No hay datos de marea para este día.</Text>;
+  }
+
+  return (
+    <View style={styles.tideList}>
+      {tides.map((tide) => {
+        const isNext =
+          nextTide != null && nextTide.time === tide.time && nextTide.kind === tide.kind;
+        const isHigh = tide.kind === 'pleamar';
+        return (
+          <View
+            key={`${tide.kind}-${tide.time}`}
+            style={[
+              styles.tideRow,
+              nested ? styles.tideRowNested : null,
+              isNext ? styles.tideRowNext : null,
+            ]}
+          >
+            <View
+              style={[
+                styles.iconBadge,
+                { backgroundColor: isHigh ? `${COLORS.wind}22` : `${COLORS.temp}22` },
+              ]}
+            >
+              {isHigh ? (
+                <ArrowUp size={16} color={COLORS.wind} />
+              ) : (
+                <ArrowDown size={16} color={COLORS.temp} />
+              )}
+            </View>
+            <View style={styles.tideInfo}>
+              <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
+              <Text style={styles.tideMeta}>
+                {formatTideClock(tide.time)}
+                {isNext ? ` · próxima${tideSize ? ` (${tideSize})` : ''}` : ''}
+              </Text>
+            </View>
+            <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function TidesCard({
   tides,
   nextTide,
@@ -734,6 +856,7 @@ function TidesCard({
   stationName: string | null;
 }) {
   const { COLORS, styles } = useAppChrome();
+  const tideSize = getTideSize(tides);
   return (
     <Card>
       <CardHeader icon={Waves} tint={COLORS.sea} title="Mareas de hoy" />
@@ -743,50 +866,13 @@ function TidesCard({
       {nextTide ? (
         <Text style={styles.heroCaption}>
           Próxima {nextTide.kind === 'pleamar' ? 'pleamar' : 'bajamar'}: {formatTideClock(nextTide.time)} ·{' '}
-          {formatMetric(nextTide.height, 2)} m
+          {formatMetric(nextTide.height, 2)} m{tideSize ? ` (${tideSize})` : ''}
         </Text>
       ) : (
         <Text style={styles.heroCaption}>Sin más mareas previstas hoy</Text>
       )}
 
-      {tides.length === 0 ? (
-        <Text style={styles.fallbackHint}>No hay datos de marea para este día.</Text>
-      ) : (
-        <View style={styles.tideList}>
-          {tides.map((tide) => {
-            const isNext =
-              nextTide != null && nextTide.time === tide.time && nextTide.kind === tide.kind;
-            const isHigh = tide.kind === 'pleamar';
-            return (
-              <View
-                key={`${tide.kind}-${tide.time}`}
-                style={[styles.tideRow, isNext ? styles.tideRowNext : null]}
-              >
-                <View
-                  style={[
-                    styles.iconBadge,
-                    { backgroundColor: isHigh ? `${COLORS.wind}22` : `${COLORS.temp}22` },
-                  ]}
-                >
-                  {isHigh ? (
-                    <ArrowUp size={16} color={COLORS.wind} />
-                  ) : (
-                    <ArrowDown size={16} color={COLORS.temp} />
-                  )}
-                </View>
-                <View style={styles.tideInfo}>
-                  <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
-                  <Text style={styles.tideMeta}>
-                    {formatTideClock(tide.time)}
-                    {isNext ? ' · próxima' : ''}
-                  </Text>
-                </View>
-                <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
+      <TideEventsList tides={tides} nextTide={nextTide} />
       <Text style={styles.fallbackHint}>
         Predicción IHM · hora peninsular. Alturas sobre el nivel medio del mar.
       </Text>
@@ -840,15 +926,29 @@ function Metric({
   );
 }
 
-function WindDirection({ degrees }: { degrees: number }) {
+function WindCompass({ degrees, size = 48 }: { degrees: number; size?: number }) {
   const { COLORS, styles } = useAppChrome();
   const rotation = useMemo(() => [{ rotate: `${degrees + 180}deg` }], [degrees]);
+  const iconSize = Math.round(size * 0.58);
+
+  return (
+    <View
+      style={[
+        styles.compass,
+        { width: size, height: size, borderRadius: size / 2, transform: rotation },
+      ]}
+    >
+      <Navigation2 size={iconSize} color={COLORS.wind} />
+    </View>
+  );
+}
+
+function WindDirection({ degrees }: { degrees: number }) {
+  const { styles } = useAppChrome();
 
   return (
     <View style={styles.windDirection}>
-      <View style={[styles.compass, { transform: rotation }]}>
-        <Navigation2 size={28} color={COLORS.wind} />
-      </View>
+      <WindCompass degrees={degrees} />
       <Text style={styles.heroCaption}>
         Desde {degreesToCompass(degrees)} hacia {degreesToCompass((degrees + 180) % 360)}
       </Text>
@@ -1083,6 +1183,9 @@ function createStyles(COLORS: ThemeColors) {
     borderRadius: 14,
     padding: 12,
   },
+  tideRowNested: {
+    backgroundColor: COLORS.card,
+  },
   tideRowNext: {
     borderWidth: 1,
     borderColor: COLORS.sea,
@@ -1090,6 +1193,7 @@ function createStyles(COLORS: ThemeColors) {
   },
   tideInfo: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   tideKind: {
@@ -1188,25 +1292,17 @@ function createStyles(COLORS: ThemeColors) {
   pickerOptionLabelActive: {
     color: COLORS.accent,
   },
-  summaryHero: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  summaryTemp: {
-    color: COLORS.text,
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: -1,
-  },
-  summaryWeather: {
-    color: COLORS.muted,
-    fontSize: 15,
-    flex: 1,
-  },
   summaryList: {
     gap: 10,
+  },
+  summaryPair: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  summaryPairItem: {
+    flex: 1,
+    minWidth: 0,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -1231,6 +1327,12 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '700',
+  },
+  summaryRowValueLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   summaryRowDetail: {
     color: COLORS.muted,
@@ -1276,6 +1378,11 @@ function createStyles(COLORS: ThemeColors) {
     fontSize: 11,
     fontWeight: '700',
     height: 16,
+  },
+  hourlyIcon: {
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hourlyValue: {
     color: COLORS.text,

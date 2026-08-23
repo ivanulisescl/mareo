@@ -102,7 +102,7 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'wind_gusts_10m_max',
       'wind_direction_10m_dominant',
     ].join(','),
-    hourly: ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m'].join(','),
+    hourly: ['temperature_2m', 'weather_code', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m'].join(','),
     forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
   });
@@ -126,6 +126,7 @@ export async function fetchMarine(coords: Coordinates): Promise<MarineApiRespons
       'wave_period_max',
       'sea_surface_temperature_max',
     ].join(','),
+    hourly: ['wave_height', 'wave_period'].join(','),
     forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
     cell_selection: 'sea',

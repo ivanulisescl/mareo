@@ -46,6 +46,8 @@ export type WeatherApiResponse = {
 
 export type WeatherHourly = {
   time: string[];
+  temperature_2m: number[];
+  weather_code: number[];
   wind_speed_10m: number[];
   wind_direction_10m: number[];
   wind_gusts_10m: number[];
@@ -56,6 +58,18 @@ export type HourlyWind = {
   speed: number;
   direction: number;
   gusts: number;
+};
+
+export type HourlyWeather = {
+  time: string;
+  temperature: number;
+  weatherCode: number;
+};
+
+export type HourlyWaves = {
+  time: string;
+  height: number;
+  period: number;
 };
 
 export type WeatherDaily = {
@@ -78,6 +92,12 @@ export type MarineCurrent = {
   sea_surface_temperature: number | null;
 };
 
+export type MarineHourly = {
+  time: string[];
+  wave_height: Array<number | null>;
+  wave_period: Array<number | null>;
+};
+
 export type MarineApiResponse = {
   latitude: number;
   longitude: number;
@@ -90,6 +110,7 @@ export type MarineApiResponse = {
     sea_surface_temperature: string;
   };
   daily?: MarineDaily;
+  hourly?: MarineHourly;
 };
 
 export type MarineDaily = {
@@ -265,6 +286,61 @@ export function getTodayHourlyWind(weather: WeatherApiResponse): HourlyWind[] {
       continue;
     }
     hours.push({ time, speed, direction, gusts });
+  }
+
+  return hours;
+}
+
+export function getTodayHourlyWeather(weather: WeatherApiResponse): HourlyWeather[] {
+  const hourly = weather.hourly;
+  if (!hourly?.temperature_2m || !hourly.weather_code) {
+    return [];
+  }
+
+  const today = weather.current.time.slice(0, 10);
+  const fromHour = weather.current.time.slice(0, 13);
+  const hours: HourlyWeather[] = [];
+
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const time = hourly.time[index];
+    if (!time.startsWith(today) || time < fromHour) {
+      continue;
+    }
+    const temperature = hourly.temperature_2m[index];
+    const weatherCode = hourly.weather_code[index];
+    if (temperature == null || weatherCode == null) {
+      continue;
+    }
+    hours.push({ time, temperature, weatherCode });
+  }
+
+  return hours;
+}
+
+export function getTodayHourlyWaves(
+  marine: MarineApiResponse | null,
+  nowIso: string,
+): HourlyWaves[] {
+  const hourly = marine?.hourly;
+  if (!hourly) {
+    return [];
+  }
+
+  const today = nowIso.slice(0, 10);
+  const fromHour = nowIso.slice(0, 13);
+  const hours: HourlyWaves[] = [];
+
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const time = hourly.time[index];
+    if (!time.startsWith(today) || time < fromHour) {
+      continue;
+    }
+    const height = hourly.wave_height[index];
+    const period = hourly.wave_period[index];
+    if (height == null || period == null) {
+      continue;
+    }
+    hours.push({ time, height, period });
   }
 
   return hours;
