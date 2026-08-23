@@ -24,7 +24,7 @@ import {
   Waves,
   Wind,
 } from 'lucide-react-native';
-import { useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import {
   Image,
   Modal,
@@ -50,19 +50,7 @@ import {
   getTideSize,
   getWeatherInfo,
 } from './types/weather';
-
-const COLORS = {
-  text: '#E8F4FC',
-  muted: '#8BA3B8',
-  accent: '#38BDF8',
-  wind: '#67E8F9',
-  sea: '#2DD4BF',
-  temp: '#FBBF24',
-  moon: '#C7D2FE',
-  card: 'rgba(14, 36, 58, 0.82)',
-  border: 'rgba(56, 189, 248, 0.18)',
-  chip: 'rgba(56, 189, 248, 0.12)',
-};
+import { ThemeProvider, useTheme, type ThemeColors } from './theme';
 
 const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
   sun: Sun,
@@ -112,32 +100,85 @@ function formatMetric(value: number | null | undefined, digits = 1): string {
   return value.toFixed(digits);
 }
 
+type AppChrome = {
+  mode: 'light' | 'dark';
+  COLORS: ThemeColors;
+  styles: any;
+  toggleTheme: () => void;
+};
+
+const AppChromeContext = createContext<AppChrome | null>(null);
+
+function useAppChrome() {
+  const ctx = useContext(AppChromeContext);
+  if (!ctx) {
+    throw new Error('useAppChrome debe usarse dentro de App');
+  }
+  return ctx;
+}
+
+function ThemeToggle({ greeting }: { greeting?: boolean }) {
+  const { mode, toggleTheme, COLORS, styles } = useAppChrome();
+  const nextMode = mode === 'dark' ? 'claro' : 'oscuro';
+  const Icon = mode === 'dark' ? Sun : Moon;
+
+  return (
+    <Pressable
+      onPress={toggleTheme}
+      style={[styles.themeToggle, greeting ? styles.themeToggleGreeting : null]}
+      accessibilityRole="button"
+      accessibilityLabel={`Cambiar a modo ${nextMode}`}
+    >
+      <Icon size={20} color={COLORS.accent} />
+    </Pressable>
+  );
+}
+
 export default function App() {
+  return (
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <AppScreen />
+      </SafeAreaProvider>
+    </ThemeProvider>
+  );
+}
+
+function AppScreen() {
   const { data, refreshing, error, refresh, locationChoice, selectLocation } =
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
   const [showGreeting, setShowGreeting] = useState(true);
   const greeting = useMemo(() => pickGreeting(), []);
+  const { mode, colors, toggleTheme } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const chrome = useMemo(
+    () => ({ mode, COLORS: colors, styles, toggleTheme }),
+    [mode, colors, styles, toggleTheme],
+  );
 
   return (
-    <SafeAreaProvider>
-      <LinearGradient colors={['#04101C', '#0B1F33', '#06303A']} style={styles.flex}>
-        <StatusBar style="light" />
+    <AppChromeContext.Provider value={chrome}>
+      <LinearGradient colors={colors.gradient} style={styles.flex}>
+        <StatusBar style={colors.statusBar} />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
           {showGreeting ? (
-            <Pressable
-              style={styles.flex}
-              onPress={() => setShowGreeting(false)}
-              accessibilityRole="button"
-              accessibilityLabel="Continuar a CliMarEo"
-            >
-              <View style={styles.greetingInner} pointerEvents="none">
-                <Image source={headerLogo} style={styles.greetingLogo} />
-                <Text style={styles.greetingTitle}>CliMarEo</Text>
-                <Text style={styles.greetingPhrase}>{greeting}</Text>
-                <Text style={styles.greetingHint}>Toca para continuar</Text>
-              </View>
-            </Pressable>
+            <View style={styles.flex}>
+              <Pressable
+                style={styles.flex}
+                onPress={() => setShowGreeting(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Continuar a CliMarEo"
+              >
+                <View style={styles.greetingInner} pointerEvents="none">
+                  <Image source={headerLogo} style={styles.greetingLogo} />
+                  <Text style={styles.greetingTitle}>CliMarEo</Text>
+                  <Text style={styles.greetingPhrase}>{greeting}</Text>
+                  <Text style={styles.greetingHint}>Toca para continuar</Text>
+                </View>
+              </Pressable>
+              <ThemeToggle greeting />
+            </View>
           ) : (
             <ScrollView
               key={tab}
@@ -146,8 +187,8 @@ export default function App() {
                 <RefreshControl
                   refreshing={refreshing}
                   onRefresh={refresh}
-                  tintColor={COLORS.accent}
-                  colors={[COLORS.accent]}
+                  tintColor={colors.accent}
+                  colors={[colors.accent]}
                 />
               }
             >
@@ -175,7 +216,7 @@ export default function App() {
           </SafeAreaView>
         )}
       </LinearGradient>
-    </SafeAreaProvider>
+    </AppChromeContext.Provider>
   );
 }
 
@@ -195,6 +236,7 @@ function Header({
   onSelectLocation: (choice: LocationChoice) => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { COLORS, styles } = useAppChrome();
 
   return (
     <View style={styles.header}>
@@ -204,6 +246,7 @@ function Header({
           <Text style={styles.kicker}>Climatología y estado de la mar</Text>
           <Text style={styles.title}>CliMarEo</Text>
         </View>
+        <ThemeToggle />
       </View>
       <Pressable
         onPress={() => setPickerOpen(true)}
@@ -254,6 +297,7 @@ function Header({
 }
 
 function Summary({ data }: { data: DashboardData }) {
+  const { COLORS, styles } = useAppChrome();
   const weather = getWeatherInfo(data.weather.current.weather_code);
   const WeatherIcon = WEATHER_ICONS[weather.icon];
   const current = data.weather.current;
@@ -339,6 +383,7 @@ function Summary({ data }: { data: DashboardData }) {
 }
 
 function Forecast({ data }: { data: DashboardData }) {
+  const { styles } = useAppChrome();
   const todayIso = data.weather.current.time.slice(0, 10);
   const [openDate, setOpenDate] = useState(data.forecastDays[0]?.date ?? null);
 
@@ -385,6 +430,7 @@ function ForecastDayCard({
 }) {
   const weather = getWeatherInfo(day.weatherCode);
   const WeatherIcon = WEATHER_ICONS[weather.icon];
+  const { COLORS, styles } = useAppChrome();
 
   return (
     <Card>
@@ -490,6 +536,7 @@ function SummaryRow({
   value: string;
   details?: string[];
 }) {
+  const { styles } = useAppChrome();
   return (
     <View style={styles.summaryRow}>
       <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
@@ -509,6 +556,7 @@ function SummaryRow({
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
+  const { COLORS, styles } = useAppChrome();
   const weather = getWeatherInfo(data.weather.current.weather_code);
   const WeatherIcon = WEATHER_ICONS[weather.icon];
   const current = data.weather.current;
@@ -614,6 +662,7 @@ function TidesCard({
   nextTide: TideEvent | null;
   stationName: string | null;
 }) {
+  const { COLORS, styles } = useAppChrome();
   return (
     <Card>
       <CardHeader icon={Waves} tint={COLORS.sea} title="Mareas de hoy" />
@@ -675,6 +724,7 @@ function TidesCard({
 }
 
 function Card({ children }: { children: ReactNode }) {
+  const { styles } = useAppChrome();
   return <View style={styles.card}>{children}</View>;
 }
 
@@ -687,6 +737,7 @@ function CardHeader({
   tint: string;
   title: string;
 }) {
+  const { styles } = useAppChrome();
   return (
     <View style={styles.cardHeader}>
       <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
@@ -708,6 +759,7 @@ function Metric({
   value: string;
   tint: string;
 }) {
+  const { styles } = useAppChrome();
   return (
     <View style={styles.metric}>
       <Icon size={14} color={tint} />
@@ -718,6 +770,7 @@ function Metric({
 }
 
 function WindDirection({ degrees }: { degrees: number }) {
+  const { COLORS, styles } = useAppChrome();
   const rotation = useMemo(() => [{ rotate: `${degrees + 180}deg` }], [degrees]);
 
   return (
@@ -733,6 +786,7 @@ function WindDirection({ degrees }: { degrees: number }) {
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { styles } = useAppChrome();
   return (
     <View style={styles.errorBanner}>
       <Text style={styles.errorText}>{message}</Text>
@@ -744,6 +798,7 @@ function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 function BottomNav({ tab, onChange }: { tab: AppTab; onChange: (next: AppTab) => void }) {
+  const { styles } = useAppChrome();
   return (
     <View style={styles.tabBar}>
       <TabButton
@@ -779,6 +834,7 @@ function TabButton({
   label: string;
   onPress: () => void;
 }) {
+  const { COLORS, styles } = useAppChrome();
   const color = active ? COLORS.accent : COLORS.muted;
   return (
     <Pressable onPress={onPress} style={[styles.tabButton, active ? styles.tabButtonActive : null]}>
@@ -788,7 +844,8 @@ function TabButton({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(COLORS: ThemeColors) {
+  return StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -958,7 +1015,7 @@ const styles = StyleSheet.create({
   tideRowNext: {
     borderWidth: 1,
     borderColor: COLORS.sea,
-    backgroundColor: 'rgba(45, 212, 191, 0.12)',
+    backgroundColor: COLORS.tideNextBg,
   },
   tideInfo: {
     flex: 1,
@@ -995,8 +1052,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.chip,
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.35)',
+    backgroundColor: COLORS.errorBg,
+    borderColor: COLORS.errorBorder,
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
@@ -1004,29 +1061,29 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   errorText: {
-    color: '#FCA5A5',
+    color: COLORS.errorText,
     fontSize: 14,
   },
   retryButton: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
+    backgroundColor: COLORS.retryBg,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   retryLabel: {
-    color: '#FECACA',
+    color: COLORS.retryText,
     fontWeight: '700',
   },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(4, 16, 28, 0.72)',
+    backgroundColor: COLORS.overlay,
     justifyContent: 'flex-end',
     padding: 16,
     paddingBottom: 28,
   },
   pickerSheet: {
-    backgroundColor: '#0B1F33',
+    backgroundColor: COLORS.sheet,
     borderColor: COLORS.border,
     borderWidth: 1,
     borderRadius: 20,
@@ -1099,7 +1156,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabBarSafe: {
-    backgroundColor: 'rgba(4, 16, 28, 0.96)',
+    backgroundColor: COLORS.tabBar,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
@@ -1159,4 +1216,20 @@ const styles = StyleSheet.create({
     marginTop: 14,
     gap: 10,
   },
-});
+  themeToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.chip,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  themeToggleGreeting: {
+    position: 'absolute',
+    top: 8,
+    right: 16,
+  },
+  });
+}
