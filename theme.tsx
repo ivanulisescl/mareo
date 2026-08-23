@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Appearance, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -94,38 +94,40 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function applyNativeScheme(mode: ThemeMode) {
-  Appearance.setColorScheme(mode);
-  if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    document.documentElement.style.colorScheme = mode;
+function applyPageBackground(mode: ThemeMode) {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') {
+    return;
   }
+  const background = mode === 'dark' ? DARK_COLORS.gradient[0] : LIGHT_COLORS.gradient[0];
+  document.documentElement.style.backgroundColor = background;
+  document.body.style.backgroundColor = background;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>('dark');
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((stored) => {
         if (stored === 'light' || stored === 'dark') {
           setMode(stored);
-          applyNativeScheme(stored);
-          return;
         }
-        applyNativeScheme('dark');
       })
-      .catch(() => {
-        applyNativeScheme('dark');
-      });
+      .catch(() => {})
+      .finally(() => setReady(true));
   }, []);
 
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+    applyPageBackground(mode);
+    AsyncStorage.setItem(STORAGE_KEY, mode).catch(() => {});
+  }, [mode, ready]);
+
   const toggleTheme = useCallback(() => {
-    setMode((current) => {
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyNativeScheme(next);
-      AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
-      return next;
-    });
+    setMode((current) => (current === 'dark' ? 'light' : 'dark'));
   }, []);
 
   const value = useMemo(

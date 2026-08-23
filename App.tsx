@@ -159,7 +159,11 @@ function AppScreen() {
 
   return (
     <AppChromeContext.Provider value={chrome}>
-      <LinearGradient colors={colors.gradient} style={styles.flex}>
+      <LinearGradient
+        key={mode}
+        colors={colors.gradient}
+        style={[styles.flex, { backgroundColor: colors.gradient[0] }]}
+      >
         <StatusBar style={colors.statusBar} />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
           {showGreeting ? (
