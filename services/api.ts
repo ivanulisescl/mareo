@@ -102,6 +102,7 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'wind_gusts_10m_max',
       'wind_direction_10m_dominant',
     ].join(','),
+    hourly: ['wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m'].join(','),
     forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
   });

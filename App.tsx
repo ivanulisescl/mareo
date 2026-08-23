@@ -48,6 +48,7 @@ import {
   getMoonPhase,
   getSeaState,
   getTideSize,
+  getTodayHourlyWind,
   getWeatherInfo,
 } from './types/weather';
 import { ThemeProvider, useTheme, type ThemeColors } from './theme';
@@ -302,6 +303,8 @@ function Header({
 
 function Summary({ data }: { data: DashboardData }) {
   const { COLORS, styles } = useAppChrome();
+  const [windOpen, setWindOpen] = useState(false);
+  const hourlyWind = useMemo(() => getTodayHourlyWind(data.weather), [data.weather]);
   const weather = getWeatherInfo(data.weather.current.weather_code);
   const WeatherIcon = WEATHER_ICONS[weather.icon];
   const current = data.weather.current;
@@ -350,6 +353,37 @@ function Summary({ data }: { data: DashboardData }) {
             tint={COLORS.wind}
             label="Viento"
             value={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)} · Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
+            expandable
+            expanded={windOpen}
+            onToggle={() => setWindOpen((open) => !open)}
+            extra={
+              hourlyWind.length === 0 ? (
+                <Text style={styles.summaryRowDetail}>Sin previsión horaria para hoy.</Text>
+              ) : (
+                <View style={styles.hourlyTable}>
+                  <View style={styles.hourlyLabels}>
+                    <View style={styles.hourlyLabelTime} />
+                    <Text style={styles.hourlyLabel}>Viento{'\n'}km/h</Text>
+                    <Text style={styles.hourlyLabel}>Rachas{'\n'}km/h</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.hourlyScroll}
+                    contentContainerStyle={styles.hourlyScroller}
+                  >
+                    {hourlyWind.map((hour) => (
+                      <View key={hour.time} style={styles.hourlyChip}>
+                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                        <Text style={styles.hourlyValue}>{formatMetric(hour.speed, 0)}</Text>
+                        <Text style={styles.hourlyGusts}>{formatMetric(hour.gusts, 0)}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )
+            }
           />
           <SummaryRow
             icon={Waves}
@@ -533,16 +567,24 @@ function SummaryRow({
   label,
   value,
   details,
+  expandable,
+  expanded,
+  onToggle,
+  extra,
 }: {
   icon: LucideIcon;
   tint: string;
   label: string;
   value: string;
   details?: string[];
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+  extra?: ReactNode;
 }) {
-  const { styles } = useAppChrome();
-  return (
-    <View style={styles.summaryRow}>
+  const { COLORS, styles } = useAppChrome();
+  const header = (
+    <>
       <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
         <Icon size={16} color={tint} />
       </View>
@@ -555,8 +597,33 @@ function SummaryRow({
           </Text>
         ))}
       </View>
-    </View>
+      {expandable ? (
+        <ChevronDown
+          size={18}
+          color={COLORS.accent}
+          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+        />
+      ) : null}
+    </>
   );
+
+  if (expandable) {
+    return (
+      <View style={styles.summaryRowStack}>
+        <Pressable
+          onPress={onToggle}
+          style={styles.summaryRowHeader}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}. ${expanded ? 'Ocultar previsión horaria' : 'Ver previsión horaria'}`}
+        >
+          {header}
+        </Pressable>
+        {expanded ? extra : null}
+      </View>
+    );
+  }
+
+  return <View style={styles.summaryRow}>{header}</View>;
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
@@ -1149,6 +1216,17 @@ function createStyles(COLORS: ThemeColors) {
     borderRadius: 14,
     padding: 12,
   },
+  summaryRowStack: {
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+  },
+  summaryRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
   summaryRowValue: {
     color: COLORS.text,
     fontSize: 15,
@@ -1158,6 +1236,62 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.muted,
     fontSize: 13,
     marginTop: 2,
+  },
+  hourlyTable: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  hourlyLabels: {
+    width: 52,
+    gap: 2,
+    paddingTop: 0,
+  },
+  hourlyScroll: {
+    flex: 1,
+  },
+  hourlyLabelTime: {
+    height: 16,
+  },
+  hourlyLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 14,
+    height: 28,
+  },
+  hourlyScroller: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingRight: 4,
+    flexGrow: 1,
+  },
+  hourlyChip: {
+    minWidth: 48,
+    alignItems: 'center',
+    gap: 2,
+  },
+  hourlyTime: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    height: 16,
+  },
+  hourlyValue: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 20,
+    height: 28,
+    textAlign: 'center',
+  },
+  hourlyGusts: {
+    color: COLORS.accent,
+    fontSize: 16,
+    fontWeight: '800',
+    lineHeight: 20,
+    height: 28,
+    textAlign: 'center',
   },
   tabBarSafe: {
     backgroundColor: COLORS.tabBar,

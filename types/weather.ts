@@ -41,6 +41,21 @@ export type WeatherApiResponse = {
     wind_gusts_10m: string;
   };
   daily?: WeatherDaily;
+  hourly?: WeatherHourly;
+};
+
+export type WeatherHourly = {
+  time: string[];
+  wind_speed_10m: number[];
+  wind_direction_10m: number[];
+  wind_gusts_10m: number[];
+};
+
+export type HourlyWind = {
+  time: string;
+  speed: number;
+  direction: number;
+  gusts: number;
 };
 
 export type WeatherDaily = {
@@ -226,6 +241,33 @@ export function formatUpdatedAt(isoTime: string): string {
 export function formatTideClock(isoTime: string): string {
   const timePart = isoTime.split('T')[1] ?? isoTime;
   return timePart.slice(0, 5);
+}
+
+export function getTodayHourlyWind(weather: WeatherApiResponse): HourlyWind[] {
+  const hourly = weather.hourly;
+  if (!hourly) {
+    return [];
+  }
+
+  const today = weather.current.time.slice(0, 10);
+  const fromHour = weather.current.time.slice(0, 13);
+  const hours: HourlyWind[] = [];
+
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const time = hourly.time[index];
+    if (!time.startsWith(today) || time < fromHour) {
+      continue;
+    }
+    const speed = hourly.wind_speed_10m[index];
+    const direction = hourly.wind_direction_10m[index];
+    const gusts = hourly.wind_gusts_10m[index];
+    if (speed == null || direction == null || gusts == null) {
+      continue;
+    }
+    hours.push({ time, speed, direction, gusts });
+  }
+
+  return hours;
 }
 
 export function formatForecastDayLabel(dateIso: string, todayIso: string): string {
