@@ -113,23 +113,31 @@ function formatMetric(value: number | null | undefined, digits = 1): string {
 }
 
 export default function App() {
-  const { data, loading, refreshing, error, refresh, locationChoice, selectLocation } =
+  const { data, refreshing, error, refresh, locationChoice, selectLocation } =
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
+  const [showGreeting, setShowGreeting] = useState(true);
   const greeting = useMemo(() => pickGreeting(), []);
-  const waitingForData = loading && !data;
 
   return (
     <SafeAreaProvider>
       <LinearGradient colors={['#04101C', '#0B1F33', '#06303A']} style={styles.flex}>
         <StatusBar style="light" />
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
-          {waitingForData ? (
-            <View style={styles.greetingInner}>
-              <Image source={headerLogo} style={styles.greetingLogo} />
-              <Text style={styles.greetingTitle}>CliMarEo</Text>
-              <Text style={styles.greetingPhrase}>{greeting}</Text>
-            </View>
+          {showGreeting ? (
+            <Pressable
+              style={styles.flex}
+              onPress={() => setShowGreeting(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Continuar a CliMarEo"
+            >
+              <View style={styles.greetingInner} pointerEvents="none">
+                <Image source={headerLogo} style={styles.greetingLogo} />
+                <Text style={styles.greetingTitle}>CliMarEo</Text>
+                <Text style={styles.greetingPhrase}>{greeting}</Text>
+                <Text style={styles.greetingHint}>Toca para continuar</Text>
+              </View>
+            </Pressable>
           ) : (
             <ScrollView
               key={tab}
@@ -161,7 +169,7 @@ export default function App() {
             </ScrollView>
           )}
         </SafeAreaView>
-        {waitingForData ? null : (
+        {showGreeting ? null : (
           <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.tabBarSafe}>
             <BottomNav tab={tab} onChange={setTab} />
           </SafeAreaView>
@@ -810,6 +818,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  greetingHint: {
+    color: COLORS.muted,
+    fontSize: 14,
+    marginTop: 8,
   },
   header: {
     paddingTop: 12,
