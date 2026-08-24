@@ -1004,7 +1004,7 @@ function BottomNav({ tab, onChange }: { tab: AppTab; onChange: (next: AppTab) =>
       <TabButton
         active={tab === 'completa'}
         icon={List}
-        label="Completa"
+        label="Horaria"
         onPress={() => onChange('completa')}
       />
       <TabButton
