@@ -93,6 +93,11 @@ function formatMetric(value: number | null | undefined, digits = 1): string {
   return value.toFixed(digits);
 }
 
+function formatRainAmount(value: number | null | undefined): string {
+  const formatted = formatMetric(value);
+  return formatted === '0.0' ? '-' : formatted;
+}
+
 type AppChrome = {
   mode: 'light' | 'dark';
   COLORS: ThemeColors;
@@ -415,7 +420,7 @@ function Summary({ data }: { data: DashboardData }) {
                     {hourlyRain.map((hour) => (
                       <View key={hour.time} style={styles.hourlyChip}>
                         <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
-                        <Text style={styles.hourlyValue}>{formatMetric(hour.amount)}</Text>
+                        <Text style={styles.hourlyValue}>{formatRainAmount(hour.amount)}</Text>
                         <Text style={styles.hourlyGusts}>{Math.round(hour.probability)}</Text>
                       </View>
                     ))}
@@ -770,9 +775,9 @@ function Dashboard({ data }: { data: DashboardData }) {
               <View style={styles.hourlyLabelTime} />
               <Text style={styles.hourlyBoardLabel} />
               <Text style={styles.hourlyBoardLabel}>Temp</Text>
+              <Text style={styles.hourlyBoardLabel}>Prob.</Text>
               <Text style={styles.hourlyBoardLabel} />
               <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
-              <Text style={styles.hourlyBoardLabel}>Prob.</Text>
               <Text style={styles.hourlyBoardLabel}>Dir.</Text>
               <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
               <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
@@ -798,6 +803,7 @@ function Dashboard({ data }: { data: DashboardData }) {
                       <HourIcon size={16} color={COLORS.temp} />
                     </View>
                     <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
+                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
                     <View
                       style={styles.hourlyIcon}
                       accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
@@ -808,8 +814,7 @@ function Dashboard({ data }: { data: DashboardData }) {
                         clipId={`d${hour.time.replace(/\W/g, '')}`}
                       />
                     </View>
-                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.rain)}</Text>
-                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
+                    <Text style={styles.hourlyBoardValue}>{formatRainAmount(hour.rain)}</Text>
                     <View style={styles.hourlyIcon}>
                       <WindCompass degrees={hour.windDirection} size={22} />
                     </View>
