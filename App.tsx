@@ -39,6 +39,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import Svg, { ClipPath, Defs, Path, Rect } from 'react-native-svg';
 
 const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -54,6 +55,7 @@ import {
   getSeaState,
   getBeaufortLabel,
   getTideSize,
+  getTodayHourlyDetail,
   getTodayHourlyRain,
   getTodayHourlyWaves,
   getTodayHourlyWeather,
@@ -751,98 +753,81 @@ function SummaryRow({
 
 function Dashboard({ data }: { data: DashboardData }) {
   const { COLORS, styles } = useAppChrome();
-  const weather = getWeatherInfo(data.weather.current.weather_code);
-  const WeatherIcon = WEATHER_ICONS[weather.icon];
-  const current = data.weather.current;
-  const marine = data.marine?.current;
-  const moon = getMoonPhase(current.time);
+  const hours = useMemo(
+    () => getTodayHourlyDetail(data.weather, data.marine),
+    [data.weather, data.marine],
+  );
 
   return (
     <View style={styles.cards}>
       <Card>
-        <CardHeader icon={WeatherIcon} tint={COLORS.temp} title="Clima" />
-        <Text style={styles.heroValue}>{Math.round(current.temperature_2m)}°</Text>
-        <Text style={styles.heroCaption}>{weather.label}</Text>
-        <View style={styles.metricsRow}>
-          <Metric
-            icon={Thermometer}
-            label="Sensación"
-            value={`${Math.round(current.apparent_temperature)}°`}
-            tint={COLORS.temp}
-          />
-          <Metric
-            icon={Moon}
-            label="Luna"
-            value={`${moon.label} · ${moon.illumination}%`}
-            tint={COLORS.moon}
-          />
-        </View>
-      </Card>
-
-      <Card>
-        <CardHeader icon={Wind} tint={COLORS.wind} title="Viento" />
-        <Text style={styles.heroValue}>
-          {formatMetric(current.wind_speed_10m, 0)}
-          <Text style={styles.heroUnit}> km/h</Text>
-        </Text>
-        <WindDirection degrees={current.wind_direction_10m} />
-        <View style={styles.metricsRow}>
-          <Metric
-            icon={Wind}
-            label="Rachas"
-            value={`${formatMetric(current.wind_gusts_10m, 0)} km/h`}
-            tint={COLORS.wind}
-          />
-        </View>
-      </Card>
-
-      <Card>
-        <CardHeader icon={Waves} tint={COLORS.sea} title="Estado del mar" />
-        <Text style={styles.heroValue}>
-          {formatMetric(marine?.wave_height)}
-          <Text style={styles.heroUnit}> m</Text>
-        </Text>
-        <Text style={styles.heroCaption}>{getSeaState(marine?.wave_height ?? null)}</Text>
-        <View style={styles.metricsRow}>
-          <Metric
-            icon={Navigation2}
-            label="Dirección"
-            value={
-              marine?.wave_direction != null ? degreesToCompass(marine.wave_direction) : '—'
-            }
-            tint={COLORS.sea}
-          />
-          <Metric
-            icon={Waves}
-            label="Periodo"
-            value={`${formatMetric(marine?.wave_period, 0)} s`}
-            tint={COLORS.sea}
-          />
-        </View>
-        <View style={styles.metricsRow}>
-          <Metric
-            icon={Thermometer}
-            label="Agua"
-            value={
-              marine?.sea_surface_temperature != null
-                ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
-                : '—'
-            }
-            tint={COLORS.sea}
-          />
-        </View>
+        {hours.length === 0 ? (
+          <Text style={styles.fallbackHint}>Sin previsión horaria para hoy.</Text>
+        ) : (
+          <View style={styles.hourlyTable}>
+            <View style={styles.hourlyBoardLabels}>
+              <View style={styles.hourlyLabelTime} />
+              <Text style={styles.hourlyBoardLabel}>Tiempo</Text>
+              <Text style={styles.hourlyBoardLabel}>Temp</Text>
+              <Text style={styles.hourlyBoardLabel} />
+              <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
+              <Text style={styles.hourlyBoardLabel}>Prob.</Text>
+              <Text style={styles.hourlyBoardLabel}>Dir.</Text>
+              <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
+              <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
+              <Text style={styles.hourlyBoardLabel}>Olas{'\n'}m</Text>
+              <Text style={styles.hourlyBoardLabel}>Periodo{'\n'}s</Text>
+              <Text style={styles.hourlyBoardLabel}>Humedad</Text>
+            </View>
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.hourlyScroll}
+              contentContainerStyle={styles.hourlyScroller}
+            >
+              {hours.map((hour) => {
+                const hourWeather = getWeatherInfo(hour.weatherCode);
+                const HourIcon = WEATHER_ICONS[hourWeather.icon];
+                return (
+                  <View key={hour.time} style={styles.hourlyChip}>
+                    <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
+                    <View style={styles.hourlyIcon}>
+                      <HourIcon size={16} color={COLORS.temp} />
+                    </View>
+                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
+                    <View
+                      style={styles.hourlyIcon}
+                      accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
+                    >
+                      <RainDrop
+                        percent={hour.rainProbability}
+                        color={COLORS.accent}
+                        clipId={`d${hour.time.replace(/\W/g, '')}`}
+                      />
+                    </View>
+                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.rain)}</Text>
+                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
+                    <View style={styles.hourlyIcon}>
+                      <WindCompass degrees={hour.windDirection} size={22} />
+                    </View>
+                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
+                    <Text style={styles.hourlyBoardGusts}>{formatMetric(hour.windGusts, 0)}</Text>
+                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>
+                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.wavePeriod, 0)}</Text>
+                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
         {data.marine == null ? (
           <Text style={styles.fallbackHint}>
             Sin datos marinos para esta ubicación (posible zona interior).
           </Text>
         ) : null}
       </Card>
-
-      <TidesCard
-        tides={data.tidesToday}
-        nextTide={data.nextTide}
-        stationName={data.tideStationName}
-      />
     </View>
   );
 }
@@ -905,83 +890,49 @@ function TideEventsList({
   );
 }
 
-function TidesCard({
-  tides,
-  nextTide,
-  stationName,
-}: {
-  tides: TideEvent[];
-  nextTide: TideEvent | null;
-  stationName: string | null;
-}) {
-  const { COLORS, styles } = useAppChrome();
-  const tideSize = getTideSize(tides);
-  return (
-    <Card>
-      <CardHeader icon={Waves} tint={COLORS.sea} title="Mareas de hoy" />
-      {stationName ? (
-        <Text style={styles.heroCaption}>Estación: {stationName}</Text>
-      ) : null}
-      {nextTide ? (
-        <Text style={styles.heroCaption}>
-          Próxima {nextTide.kind === 'pleamar' ? 'pleamar' : 'bajamar'}: {formatTideClock(nextTide.time)} ·{' '}
-          {formatMetric(nextTide.height, 2)} m{tideSize ? ` (${tideSize})` : ''}
-        </Text>
-      ) : (
-        <Text style={styles.heroCaption}>Sin más mareas previstas hoy</Text>
-      )}
-
-      <TideEventsList tides={tides} nextTide={nextTide} />
-      <Text style={styles.fallbackHint}>
-        Predicción IHM · hora peninsular. Alturas sobre el nivel medio del mar.
-      </Text>
-    </Card>
-  );
-}
-
 function Card({ children }: { children: ReactNode }) {
   const { styles } = useAppChrome();
   return <View style={styles.card}>{children}</View>;
 }
 
-function CardHeader({
-  icon: Icon,
-  tint,
-  title,
-}: {
-  icon: LucideIcon;
-  tint: string;
-  title: string;
-}) {
-  const { styles } = useAppChrome();
-  return (
-    <View style={styles.cardHeader}>
-      <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
-        <Icon size={18} color={tint} />
-      </View>
-      <Text style={styles.cardTitle}>{title}</Text>
-    </View>
-  );
-}
+const DROPLET_PATH =
+  'M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z';
 
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  tint,
+function RainDrop({
+  percent,
+  color,
+  clipId,
+  size = 16,
 }: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  tint: string;
+  percent: number;
+  color: string;
+  clipId: string;
+  size?: number;
 }) {
-  const { styles } = useAppChrome();
+  const fill = Math.max(0, Math.min(100, percent));
+  const clipY = 24 * (1 - fill / 100);
+
   return (
-    <View style={styles.metric}>
-      <Icon size={14} color={tint} />
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden>
+      <Path
+        d={DROPLET_PATH}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {fill > 0 ? (
+        <>
+          <Defs>
+            <ClipPath id={clipId}>
+              <Rect x={0} y={clipY} width={24} height={24 - clipY} />
+            </ClipPath>
+          </Defs>
+          <Path d={DROPLET_PATH} fill={color} clipPath={`url(#${clipId})`} />
+        </>
+      ) : null}
+    </Svg>
   );
 }
 
@@ -998,19 +949,6 @@ function WindCompass({ degrees, size = 48 }: { degrees: number; size?: number })
       ]}
     >
       <Navigation2 size={iconSize} color={COLORS.wind} />
-    </View>
-  );
-}
-
-function WindDirection({ degrees }: { degrees: number }) {
-  const { styles } = useAppChrome();
-
-  return (
-    <View style={styles.windDirection}>
-      <WindCompass degrees={degrees} />
-      <Text style={styles.heroCaption}>
-        Desde {degreesToCompass(degrees)} hacia {degreesToCompass((degrees + 180) % 360)}
-      </Text>
     </View>
   );
 }
@@ -1407,6 +1345,40 @@ function createStyles(COLORS: ThemeColors) {
     width: 52,
     gap: 2,
     paddingTop: 0,
+  },
+  hourlyBoardLabels: {
+    width: 64,
+    gap: 2,
+    paddingTop: 0,
+  },
+  hourlyBoardLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '400',
+    lineHeight: 14,
+    height: 28,
+  },
+  hourlyBoardTime: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '400',
+    height: 16,
+  },
+  hourlyBoardValue: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 18,
+    height: 28,
+    textAlign: 'center',
+  },
+  hourlyBoardGusts: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 18,
+    height: 28,
+    textAlign: 'center',
   },
   hourlyScroll: {
     flex: 1,

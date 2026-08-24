@@ -59,6 +59,8 @@ export type WeatherHourly = {
   wind_gusts_10m: number[];
   precipitation: number[];
   precipitation_probability: number[];
+  relative_humidity_2m: number[];
+  pressure_msl: number[];
 };
 
 export type HourlyWind = {
@@ -86,6 +88,22 @@ export type HourlyRain = {
   probability: number;
 };
 
+export type HourlyDetail = {
+  time: string;
+  weatherCode: number;
+  temperature: number;
+  rain: number;
+  rainProbability: number;
+  windSpeed: number;
+  windDirection: number;
+  windGusts: number;
+  waveHeight: number | null;
+  wavePeriod: number | null;
+  waterTemperature: number | null;
+  humidity: number;
+  pressure: number;
+};
+
 export type WeatherDaily = {
   time: string[];
   weather_code: number[];
@@ -110,6 +128,7 @@ export type MarineHourly = {
   time: string[];
   wave_height: Array<number | null>;
   wave_period: Array<number | null>;
+  sea_surface_temperature: Array<number | null>;
 };
 
 export type MarineApiResponse = {
@@ -414,6 +433,92 @@ export function getTodayHourlyWaves(
       continue;
     }
     hours.push({ time, height, period });
+  }
+
+  return hours;
+}
+
+export function getTodayHourlyDetail(
+  weather: WeatherApiResponse,
+  marine: MarineApiResponse | null,
+): HourlyDetail[] {
+  const hourly = weather.hourly;
+  if (
+    !hourly?.temperature_2m ||
+    !hourly.weather_code ||
+    !hourly.precipitation ||
+    !hourly.precipitation_probability ||
+    !hourly.wind_speed_10m ||
+    !hourly.wind_direction_10m ||
+    !hourly.wind_gusts_10m ||
+    !hourly.relative_humidity_2m ||
+    !hourly.pressure_msl
+  ) {
+    return [];
+  }
+
+  const marineByTime = new Map<
+    string,
+    { waveHeight: number | null; wavePeriod: number | null; waterTemperature: number | null }
+  >();
+  const marineHourly = marine?.hourly;
+  if (marineHourly) {
+    for (let index = 0; index < marineHourly.time.length; index += 1) {
+      marineByTime.set(marineHourly.time[index], {
+        waveHeight: marineHourly.wave_height[index] ?? null,
+        wavePeriod: marineHourly.wave_period[index] ?? null,
+        waterTemperature: marineHourly.sea_surface_temperature?.[index] ?? null,
+      });
+    }
+  }
+
+  const today = weather.current.time.slice(0, 10);
+  const fromHour = weather.current.time.slice(0, 13);
+  const hours: HourlyDetail[] = [];
+
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const time = hourly.time[index];
+    if (!time.startsWith(today) || time < fromHour) {
+      continue;
+    }
+    const weatherCode = hourly.weather_code[index];
+    const temperature = hourly.temperature_2m[index];
+    const rain = hourly.precipitation[index];
+    const rainProbability = hourly.precipitation_probability[index];
+    const windSpeed = hourly.wind_speed_10m[index];
+    const windDirection = hourly.wind_direction_10m[index];
+    const windGusts = hourly.wind_gusts_10m[index];
+    const humidity = hourly.relative_humidity_2m[index];
+    const pressure = hourly.pressure_msl[index];
+    if (
+      weatherCode == null ||
+      temperature == null ||
+      rain == null ||
+      rainProbability == null ||
+      windSpeed == null ||
+      windDirection == null ||
+      windGusts == null ||
+      humidity == null ||
+      pressure == null
+    ) {
+      continue;
+    }
+    const marineHour = marineByTime.get(time);
+    hours.push({
+      time,
+      weatherCode,
+      temperature,
+      rain,
+      rainProbability,
+      windSpeed,
+      windDirection,
+      windGusts,
+      waveHeight: marineHour?.waveHeight ?? null,
+      wavePeriod: marineHour?.wavePeriod ?? null,
+      waterTemperature: marineHour?.waterTemperature ?? null,
+      humidity,
+      pressure,
+    });
   }
 
   return hours;
