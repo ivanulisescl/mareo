@@ -18,6 +18,7 @@ import {
   Droplet,
   Droplets,
   Gauge,
+  Info,
   LayoutGrid,
   List,
   MapPin,
@@ -145,7 +146,7 @@ function useAppChrome() {
   return ctx;
 }
 
-function ThemeToggle({ greeting }: { greeting?: boolean }) {
+function ThemeToggle() {
   const { mode, toggleTheme, COLORS, styles } = useAppChrome();
   const nextMode = mode === 'dark' ? 'claro' : 'oscuro';
   const Icon = mode === 'dark' ? Sun : Moon;
@@ -153,12 +154,155 @@ function ThemeToggle({ greeting }: { greeting?: boolean }) {
   return (
     <Pressable
       onPress={toggleTheme}
-      style={[styles.themeToggle, greeting ? styles.themeToggleGreeting : null]}
+      style={styles.themeToggle}
       accessibilityRole="button"
       accessibilityLabel={`Cambiar a modo ${nextMode}`}
     >
       <Icon size={20} color={COLORS.accent} />
     </Pressable>
+  );
+}
+
+const INFO_SOURCES: Array<{ title: string; body: string }> = [
+  {
+    title: 'Clima',
+    body: 'Tiempo, temperatura, lluvia, viento, humedad y presión. Previsión de Open-Meteo.',
+  },
+  {
+    title: 'Mar',
+    body: 'Olas, periodo y temperatura del agua. Open-Meteo.',
+  },
+  {
+    title: 'Mareas',
+    body: 'Anuario de Mareas del Instituto Hidrográfico de la Marina (IHM).',
+  },
+  {
+    title: 'Luna',
+    body: 'Cálculo local a partir del ciclo lunar.',
+  },
+];
+
+const BEAUFORT_SCALE: Array<{ name: string; range: string }> = [
+  { name: 'Calma', range: '< 1 km/h' },
+  { name: 'Ventolina', range: '1–5' },
+  { name: 'Flojito', range: '6–11' },
+  { name: 'Flojo', range: '12–19' },
+  { name: 'Bonancible', range: '20–28' },
+  { name: 'Fresquito', range: '29–38' },
+  { name: 'Fresco', range: '39–49' },
+  { name: 'Frescachón', range: '50–61' },
+  { name: 'Temporal', range: '62–74' },
+  { name: 'Temporal fuerte', range: '75–88' },
+  { name: 'Temporal duro', range: '89–102' },
+  { name: 'Temporal muy duro', range: '103–117' },
+  { name: 'Huracán', range: '≥ 118' },
+];
+
+const DOUGLAS_SCALE: Array<{ name: string; range: string }> = [
+  { name: 'Calma', range: '< 0,1 m' },
+  { name: 'Rizada', range: '0,1–0,5 m' },
+  { name: 'Marejadilla', range: '0,5–1,25 m' },
+  { name: 'Marejada', range: '1,25–2,5 m' },
+  { name: 'Fuerte marejada', range: '2,5–4 m' },
+  { name: 'Mar gruesa', range: '4–6 m' },
+  { name: 'Mar muy gruesa', range: '6–9 m' },
+  { name: 'Mar arbolada', range: '≥ 9 m' },
+];
+
+const TIDE_SCALE: Array<{ name: string; range: string }> = [
+  { name: 'Pequeña', range: '< 1,8 m' },
+  { name: 'Mediana', range: '1,8–2,8 m' },
+  { name: 'Grande', range: '≥ 2,8 m' },
+];
+
+function ScaleTable({ rows }: { rows: Array<{ name: string; range: string }> }) {
+  const { styles } = useAppChrome();
+  return (
+    <View style={styles.infoScale}>
+      {rows.map((row) => (
+        <View key={row.name} style={styles.infoScaleRow}>
+          <Text style={styles.infoScaleName}>{row.name}</Text>
+          <Text style={styles.infoScaleRange}>{row.range}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function InfoSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { styles } = useAppChrome();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.pickerOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={styles.infoSheet}>
+          <Text style={styles.pickerTitle}>Información</Text>
+          <ScrollView
+            nestedScrollEnabled
+            showsVerticalScrollIndicator={false}
+            style={styles.infoSheetScroll}
+            contentContainerStyle={styles.infoSheetContent}
+          >
+            <Text style={styles.infoSectionTitle}>Fuentes de los datos</Text>
+            {INFO_SOURCES.map((source) => (
+              <View key={source.title} style={styles.infoSourceCard}>
+                <Text style={styles.infoSourceTitle}>{source.title}</Text>
+                <Text style={styles.infoSourceBody}>{source.body}</Text>
+              </View>
+            ))}
+
+            <Text style={styles.infoSectionTitle}>Cómo se califica</Text>
+
+            <Text style={styles.infoBlockTitle}>Tiempo</Text>
+            <Text style={styles.infoBody}>
+              Códigos WMO de Open-Meteo, por ejemplo: Despejado, Nublado, Llovizna, Lluvia,
+              Chubascos, Nieve o Tormenta.
+            </Text>
+
+            <Text style={styles.infoBlockTitle}>Viento</Text>
+            <Text style={styles.infoBody}>Escala Beaufort con el viento medio (km/h).</Text>
+            <ScaleTable rows={BEAUFORT_SCALE} />
+            <Text style={styles.infoNote}>Dirección: N, NE, E, SE, S, SO, O, NO.</Text>
+
+            <Text style={styles.infoBlockTitle}>Mar</Text>
+            <Text style={styles.infoBody}>
+              Escala Douglas simplificada, según la altura significativa de ola.
+            </Text>
+            <ScaleTable rows={DOUGLAS_SCALE} />
+
+            <Text style={styles.infoBlockTitle}>Marea del día</Text>
+            <Text style={styles.infoBody}>
+              Amplitud (pleamar máxima − bajamar mínima), orientada a la costa cantábrica.
+            </Text>
+            <ScaleTable rows={TIDE_SCALE} />
+          </ScrollView>
+          <Pressable onPress={onClose} style={styles.infoClose} accessibilityRole="button">
+            <Text style={styles.infoCloseLabel}>Cerrar</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function HeaderActions({ greeting }: { greeting?: boolean }) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  const { COLORS, styles } = useAppChrome();
+
+  return (
+    <View style={[styles.headerActions, greeting ? styles.headerActionsGreeting : null]}>
+      <Pressable
+        onPress={() => setInfoOpen(true)}
+        style={styles.themeToggle}
+        accessibilityRole="button"
+        accessibilityLabel="Información sobre fuentes y criterios"
+      >
+        <Info size={20} color={COLORS.accent} />
+      </Pressable>
+      <ThemeToggle />
+      <InfoSheet visible={infoOpen} onClose={() => setInfoOpen(false)} />
+    </View>
   );
 }
 
@@ -210,7 +354,7 @@ function AppScreen() {
                   <Text style={styles.greetingHint}>Toca para continuar</Text>
                 </View>
               </Pressable>
-              <ThemeToggle greeting />
+              <HeaderActions greeting />
             </View>
           ) : (
             <ScrollView
@@ -279,7 +423,7 @@ function Header({
           <Text style={styles.kicker}>Climatología y estado de la mar</Text>
           <Text style={styles.title}>CliMarEo</Text>
         </View>
-        <ThemeToggle />
+        <HeaderActions />
       </View>
       <Pressable
         onPress={() => setPickerOpen(true)}
@@ -631,11 +775,6 @@ function Forecast({ data }: { data: DashboardData }) {
           onToggle={() => setOpenDate((current) => (current === day.date ? null : day.date))}
         />
       ))}
-      <Text style={styles.fallbackHint}>
-        Clima y mar: Open-Meteo · Mareas IHM
-        {data.tideStationName ? ` · estación ${data.tideStationName}` : ''}
-        . Alturas sobre el nivel medio del mar.
-      </Text>
     </View>
   );
 }
@@ -1897,10 +2036,114 @@ function createStyles(COLORS: ThemeColors) {
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  themeToggleGreeting: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionsGreeting: {
     position: 'absolute',
     top: 8,
     right: 16,
+  },
+  infoSheet: {
+    backgroundColor: COLORS.sheet,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 16,
+    gap: 12,
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    maxHeight: '85%',
+  },
+  infoSheetScroll: {
+    flexGrow: 0,
+  },
+  infoSheetContent: {
+    gap: 8,
+    paddingBottom: 4,
+  },
+  infoSectionTitle: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  infoSourceCard: {
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  infoSourceTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  infoSourceBody: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  infoBlockTitle: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  infoBody: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  infoNote: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  infoScale: {
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  infoScaleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  infoScaleName: {
+    color: COLORS.text,
+    fontSize: 13,
+    flex: 1,
+  },
+  infoScaleRange: {
+    color: COLORS.accent,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  infoClose: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  infoCloseLabel: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: '700',
   },
   });
 }
