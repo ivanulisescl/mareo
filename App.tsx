@@ -131,6 +131,8 @@ type AppChrome = {
   COLORS: ThemeColors;
   styles: any;
   toggleTheme: () => void;
+  layout: HourlyLayout;
+  selectLayout: (next: HourlyLayout) => void;
 };
 
 const AppChromeContext = createContext<AppChrome | null>(null);
@@ -177,10 +179,11 @@ function AppScreen() {
   const [showGreeting, setShowGreeting] = useState(true);
   const greeting = useMemo(() => pickGreeting(), []);
   const { mode, colors, toggleTheme } = useTheme();
+  const { layout, selectLayout } = useHourlyLayout();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const chrome = useMemo(
-    () => ({ mode, COLORS: colors, styles, toggleTheme }),
-    [mode, colors, styles, toggleTheme],
+    () => ({ mode, COLORS: colors, styles, toggleTheme, layout, selectLayout }),
+    [mode, colors, styles, toggleTheme, layout, selectLayout],
   );
 
   return (
@@ -674,7 +677,7 @@ function ForecastDayCard({
 }) {
   const weatherInfo = getWeatherInfo(day.weatherCode);
   const WeatherIcon = WEATHER_ICONS[weatherInfo.icon];
-  const { COLORS, styles } = useAppChrome();
+  const { COLORS, styles, layout } = useAppChrome();
   const rainLabel = formatRainAmount(day.precipitationSum);
   const rainText = rainLabel === '-' ? '-' : `${rainLabel} mm`;
   const windText = getBeaufortLabel(day.windSpeedMax);
@@ -725,6 +728,7 @@ function ForecastDayCard({
       {expanded ? (
         <View style={styles.forecastBody}>
           <HourlyBoard
+            grouped={layout === 'grouped'}
             hours={hours}
             tides={day.tides}
             emptyMessage="Sin previsión horaria para este día."
@@ -811,8 +815,7 @@ function SummaryRow({
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
-  const { COLORS, styles } = useAppChrome();
-  const { layout, selectLayout } = useHourlyLayout();
+  const { COLORS, styles, layout, selectLayout } = useAppChrome();
   const hours = useMemo(
     () => getTodayHourlyDetail(data.weather, data.marine),
     [data.weather, data.marine],
@@ -980,14 +983,17 @@ function HourlyBoard({
 
   return (
     <>
-      <View style={styles.hourlyTable}>
+      <View style={[styles.hourlyTable, grouped ? styles.hourlyTableGrouped : null]}>
         {labels}
         <ScrollView
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           style={styles.hourlyScroll}
-          contentContainerStyle={styles.hourlyScroller}
+          contentContainerStyle={[
+            styles.hourlyScroller,
+            grouped ? styles.hourlyScrollerGrouped : null,
+          ]}
         >
           {hours.map((hour) => (
             <HourlyBoardHour key={hour.time} hour={hour} tides={tides} grouped={grouped} />
@@ -1669,6 +1675,9 @@ function createStyles(COLORS: ThemeColors) {
     alignItems: 'flex-start',
     gap: 8,
   },
+  hourlyTableGrouped: {
+    gap: 4,
+  },
   hourlyLabels: {
     width: 52,
     gap: 2,
@@ -1681,21 +1690,21 @@ function createStyles(COLORS: ThemeColors) {
   },
   hourlyBoardLabelsGrouped: {
     width: 76,
-    gap: 8,
+    gap: 3,
     paddingTop: 0,
   },
   hourlyChipGrouped: {
-    minWidth: 48,
+    minWidth: 44,
     alignItems: 'center',
-    gap: 8,
+    gap: 3,
   },
   hourlyGroup: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    gap: 2,
-    borderRadius: 8,
-    paddingBottom: 4,
-    paddingHorizontal: 2,
+    gap: 1,
+    borderRadius: 6,
+    paddingBottom: 1,
+    paddingHorizontal: 1,
     overflow: 'hidden',
   },
   hourlyGroupLabeled: {
@@ -1704,12 +1713,12 @@ function createStyles(COLORS: ThemeColors) {
   hourlyGroupTitle: {
     fontSize: 10,
     fontWeight: '700',
-    lineHeight: 14,
-    height: 16,
-    paddingHorizontal: 4,
+    lineHeight: 12,
+    height: 14,
+    paddingHorizontal: 2,
   },
   hourlyGroupTitleSlot: {
-    height: 16,
+    height: 14,
     alignSelf: 'stretch',
   },
   hourlyBoardLabel: {
@@ -1768,6 +1777,9 @@ function createStyles(COLORS: ThemeColors) {
     gap: 6,
     paddingRight: 4,
     flexGrow: 1,
+  },
+  hourlyScrollerGrouped: {
+    gap: 2,
   },
   hourlyChip: {
     minWidth: 48,
