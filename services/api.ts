@@ -123,29 +123,94 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
   return fetchJson<WeatherApiResponse>(`${WEATHER_URL}?${params.toString()}`);
 }
 
-export async function fetchMarine(coords: Coordinates): Promise<MarineApiResponse> {
+function marineParams(
+  coords: Coordinates,
+  fields: { current: string; daily: string; hourly: string },
+  models?: string,
+): string {
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
-    current: [
-      'wave_height',
-      'wave_direction',
-      'wave_period',
-      'sea_surface_temperature',
-    ].join(','),
-    daily: [
-      'wave_height_max',
-      'wave_direction_dominant',
-      'wave_period_max',
-      'sea_surface_temperature_max',
-    ].join(','),
-    hourly: ['wave_height', 'wave_period', 'sea_surface_temperature'].join(','),
+    current: fields.current,
+    daily: fields.daily,
+    hourly: fields.hourly,
     forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',
     cell_selection: 'sea',
   });
+  if (models) {
+    params.set('models', models);
+  }
+  return `${MARINE_URL}?${params.toString()}`;
+}
 
-  return fetchJson<MarineApiResponse>(`${MARINE_URL}?${params.toString()}`);
+function mergeMarineTemperature(
+  waves: MarineApiResponse,
+  water: MarineApiResponse,
+): MarineApiResponse {
+  const hourlyTemp = new Map<string, number | null>();
+  water.hourly?.time.forEach((time, index) => {
+    hourlyTemp.set(time, water.hourly?.sea_surface_temperature[index] ?? null);
+  });
+  const dailyTemp = new Map<string, number | null>();
+  water.daily?.time.forEach((time, index) => {
+    dailyTemp.set(time, water.daily?.sea_surface_temperature_max[index] ?? null);
+  });
+
+  return {
+    ...waves,
+    current: {
+      ...waves.current,
+      sea_surface_temperature: water.current.sea_surface_temperature,
+    },
+    current_units: {
+      ...waves.current_units,
+      sea_surface_temperature: water.current_units.sea_surface_temperature,
+    },
+    hourly: waves.hourly
+      ? {
+          ...waves.hourly,
+          sea_surface_temperature: waves.hourly.time.map((time) => hourlyTemp.get(time) ?? null),
+        }
+      : waves.hourly,
+    daily: waves.daily
+      ? {
+          ...waves.daily,
+          sea_surface_temperature_max: waves.daily.time.map((time) => dailyTemp.get(time) ?? null),
+        }
+      : waves.daily,
+  };
+}
+
+export async function fetchMarine(coords: Coordinates): Promise<MarineApiResponse> {
+  const waveFields = {
+    current: ['wave_height', 'wave_direction', 'wave_period'].join(','),
+    daily: ['wave_height_max', 'wave_direction_dominant', 'wave_period_max'].join(','),
+    hourly: ['wave_height', 'wave_period'].join(','),
+  };
+  const waterFields = {
+    current: 'sea_surface_temperature',
+    daily: 'sea_surface_temperature_max',
+    hourly: 'sea_surface_temperature',
+  };
+
+  const [wavesResult, waterResult] = await Promise.allSettled([
+    fetchJson<MarineApiResponse>(marineParams(coords, waveFields, 'ncep_gfswave025')),
+    fetchJson<MarineApiResponse>(marineParams(coords, waterFields)),
+  ]);
+
+  if (wavesResult.status === 'rejected' && waterResult.status === 'rejected') {
+    throw wavesResult.reason instanceof Error
+      ? wavesResult.reason
+      : new Error('No se pudieron obtener los datos marinos');
+  }
+  if (wavesResult.status === 'rejected') {
+    return waterResult.value;
+  }
+  if (waterResult.status === 'rejected') {
+    return wavesResult.value;
+  }
+  return mergeMarineTemperature(wavesResult.value, waterResult.value);
 }
 
 export async function fetchWeatherAndMarine(coords: Coordinates): Promise<{

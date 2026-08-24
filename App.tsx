@@ -48,6 +48,7 @@ import Svg, { ClipPath, Defs, Path, Rect } from 'react-native-svg';
 const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import greetingPhrases from './frases.json';
+import greetingPhrasesByDate from './frases-fechas.json';
 import { useWeatherData } from './hooks/useWeatherData';
 import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
 import {
@@ -108,11 +109,26 @@ function useHourlyLayout() {
   return { layout, selectLayout };
 }
 
-function pickGreeting(): string {
-  if (greetingPhrases.length === 0) {
+function todayMonthDay(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${month}-${day}`;
+}
+
+function pickFromList(list: string[]): string {
+  if (list.length === 0) {
     return 'Hola.';
   }
-  return greetingPhrases[Math.floor(Math.random() * greetingPhrases.length)];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function pickGreeting(): string {
+  const dated = (greetingPhrasesByDate as Record<string, string[]>)[todayMonthDay()];
+  if (dated && dated.length > 0) {
+    return pickFromList(dated);
+  }
+  return pickFromList(greetingPhrases);
 }
 
 function formatMetric(value: number | null | undefined, digits = 1): string {
