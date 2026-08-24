@@ -962,8 +962,8 @@ function HourlyBoard({
     <View style={styles.hourlyBoardLabels}>
       <View style={styles.hourlyLabelTime} />
       <Text style={styles.hourlyBoardLabel} />
-      <Text style={styles.hourlyBoardLabel} />
-      <Text style={styles.hourlyBoardLabel} />
+      <Text style={styles.hourlyBoardLabel}>Temp</Text>
+      <Text style={styles.hourlyBoardLabel}>Prob.</Text>
       <Text style={styles.hourlyBoardLabel} />
       <Text style={styles.hourlyBoardLabel}>mm</Text>
       <Text style={styles.hourlyBoardLabel}>Dir.</Text>
