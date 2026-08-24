@@ -1040,10 +1040,12 @@ function Dashboard({ data }: { data: DashboardData }) {
 function HourlyGroup({
   title,
   tint,
+  flush,
   children,
 }: {
   title?: string;
   tint: string;
+  flush?: boolean;
   children: ReactNode;
 }) {
   const { styles } = useAppChrome();
@@ -1052,10 +1054,10 @@ function HourlyGroup({
       style={[
         styles.hourlyGroup,
         { backgroundColor: `${tint}22` },
-        title ? styles.hourlyGroupLabeled : null,
+        title || flush ? styles.hourlyGroupLabeled : null,
       ]}
     >
-      {title ? (
+      {flush ? null : title ? (
         <Text style={[styles.hourlyGroupTitle, { color: tint }]} numberOfLines={1}>
           {title}
         </Text>
@@ -1109,8 +1111,12 @@ function HourlyBoard({
         </Text>
         <Text style={styles.hourlyBoardLabel}>Periodo</Text>
       </HourlyGroup>
-      <HourlyGroup title="Mareas" tint={COLORS.sea}>
-        <View style={styles.hourlyTideMark} />
+      <HourlyGroup flush tint={COLORS.sea}>
+        <View style={styles.hourlyTideTitle}>
+          <Text style={[styles.hourlyGroupTitle, { color: COLORS.sea }]} numberOfLines={1}>
+            Mareas
+          </Text>
+        </View>
       </HourlyGroup>
       <HourlyGroup title="Aire" tint={COLORS.moon}>
         <Text style={styles.hourlyBoardLabel}>Humedad</Text>
@@ -1266,7 +1272,7 @@ function HourlyBoardHour({
         {waves}
         {period}
       </HourlyGroup>
-      <HourlyGroup tint={COLORS.sea}>{tide}</HourlyGroup>
+      <HourlyGroup flush tint={COLORS.sea}>{tide}</HourlyGroup>
       <HourlyGroup tint={COLORS.moon}>{humidity}</HourlyGroup>
     </View>
   );
@@ -1889,6 +1895,12 @@ function createStyles(COLORS: ThemeColors) {
     fontWeight: '400',
     lineHeight: 14,
     height: 36,
+  },
+  hourlyTideTitle: {
+    height: 36,
+    alignSelf: 'stretch',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
   hourlyTideMark: {
     height: 36,
