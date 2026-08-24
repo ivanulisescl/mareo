@@ -49,10 +49,13 @@ import {
   formatTideClock,
   getMoonPhase,
   getSeaState,
+  getBeaufortLabel,
   getTideSize,
+  getTodayHourlyRain,
   getTodayHourlyWaves,
   getTodayHourlyWeather,
   getTodayHourlyWind,
+  getTodayPrecipitationSum,
   getWeatherInfo,
 } from './types/weather';
 import { ThemeProvider, useTheme, type ThemeColors } from './theme';
@@ -309,10 +312,12 @@ function Summary({ data }: { data: DashboardData }) {
   const { COLORS, styles } = useAppChrome();
   const [windOpen, setWindOpen] = useState(false);
   const [weatherOpen, setWeatherOpen] = useState(false);
+  const [rainOpen, setRainOpen] = useState(false);
   const [seaOpen, setSeaOpen] = useState(false);
   const [tidesOpen, setTidesOpen] = useState(false);
   const hourlyWind = useMemo(() => getTodayHourlyWind(data.weather), [data.weather]);
   const hourlyWeather = useMemo(() => getTodayHourlyWeather(data.weather), [data.weather]);
+  const hourlyRain = useMemo(() => getTodayHourlyRain(data.weather), [data.weather]);
   const hourlyWaves = useMemo(
     () => getTodayHourlyWaves(data.marine, data.weather.current.time),
     [data.marine, data.weather.current.time],
@@ -338,6 +343,17 @@ function Summary({ data }: { data: DashboardData }) {
       ? `${tideTrend} desde hace ${tideElapsed}`
       : tideTrend ?? 'Sin datos';
   const moon = getMoonPhase(data.weather.current.time);
+  const currentRain = current.precipitation ?? 0;
+  const rainProbability = hourlyRain[0]?.probability ?? null;
+  const rainToday = getTodayPrecipitationSum(data.weather);
+  const rainHeadline =
+    currentRain >= 0.1
+      ? rainProbability != null
+        ? `${formatMetric(currentRain)} mm · ${Math.round(rainProbability)}%`
+        : `${formatMetric(currentRain)} mm`
+      : rainToday != null && rainToday >= 0.1
+        ? `No llueve · ${formatMetric(rainToday)} mm hoy`
+        : 'Sin lluvia prevista hoy';
 
   return (
     <View style={styles.cards}>
@@ -387,11 +403,48 @@ function Summary({ data }: { data: DashboardData }) {
             }
           />
           <SummaryRow
+            icon={CloudRain}
+            tint={COLORS.accent}
+            label="Lluvia"
+            value={rainHeadline}
+            expandable
+            expanded={rainOpen}
+            onToggle={() => setRainOpen((open) => !open)}
+            extra={
+              hourlyRain.length === 0 ? (
+                <Text style={styles.summaryRowDetail}>Sin previsión horaria para hoy.</Text>
+              ) : (
+                <View style={styles.hourlyTable}>
+                  <View style={styles.hourlyLabels}>
+                    <View style={styles.hourlyLabelTime} />
+                    <Text style={styles.hourlyLabel}>Lluvia{'\n'}mm</Text>
+                    <Text style={styles.hourlyLabel}>Prob.{'\n'}%</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.hourlyScroll}
+                    contentContainerStyle={styles.hourlyScroller}
+                  >
+                    {hourlyRain.map((hour) => (
+                      <View key={hour.time} style={styles.hourlyChip}>
+                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                        <Text style={styles.hourlyValue}>{formatMetric(hour.amount)}</Text>
+                        <Text style={styles.hourlyGusts}>{Math.round(hour.probability)}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )
+            }
+          />
+          <SummaryRow
             icon={Wind}
             leading={<WindCompass degrees={current.wind_direction_10m} size={34} />}
             tint={COLORS.wind}
             label="Viento"
-            value={`${formatMetric(current.wind_speed_10m, 0)} km/h · Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
+            value={getBeaufortLabel(current.wind_speed_10m)}
             accessibilityValue={`${formatMetric(current.wind_speed_10m, 0)} km/h ${degreesToCompass(current.wind_direction_10m)}. Rachas de ${formatMetric(current.wind_gusts_10m, 0)} km/h`}
             expandable
             expanded={windOpen}

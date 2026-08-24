@@ -24,6 +24,7 @@ export type WeatherCurrent = {
   wind_speed_10m: number;
   wind_direction_10m: number;
   wind_gusts_10m: number;
+  precipitation: number;
 };
 
 export type WeatherApiResponse = {
@@ -39,6 +40,7 @@ export type WeatherApiResponse = {
     wind_speed_10m: string;
     wind_direction_10m: string;
     wind_gusts_10m: string;
+    precipitation: string;
   };
   daily?: WeatherDaily;
   hourly?: WeatherHourly;
@@ -51,6 +53,8 @@ export type WeatherHourly = {
   wind_speed_10m: number[];
   wind_direction_10m: number[];
   wind_gusts_10m: number[];
+  precipitation: number[];
+  precipitation_probability: number[];
 };
 
 export type HourlyWind = {
@@ -70,6 +74,12 @@ export type HourlyWaves = {
   time: string;
   height: number;
   period: number;
+};
+
+export type HourlyRain = {
+  time: string;
+  amount: number;
+  probability: number;
 };
 
 export type WeatherDaily = {
@@ -206,6 +216,26 @@ export function degreesToCompass(degrees: number): string {
   return COMPASS_POINTS[index];
 }
 
+/** Escala Beaufort a partir del viento medio en km/h (Open-Meteo). */
+export function getBeaufortLabel(speedKmh: number | null): string {
+  if (speedKmh == null) {
+    return 'Sin datos';
+  }
+  if (speedKmh < 1) return 'Calma';
+  if (speedKmh < 6) return 'Ventolina';
+  if (speedKmh < 12) return 'Flojito';
+  if (speedKmh < 20) return 'Flojo';
+  if (speedKmh < 29) return 'Bonancible';
+  if (speedKmh < 39) return 'Fresquito';
+  if (speedKmh < 50) return 'Fresco';
+  if (speedKmh < 62) return 'Frescachón';
+  if (speedKmh < 75) return 'Temporal';
+  if (speedKmh < 89) return 'Temporal fuerte';
+  if (speedKmh < 103) return 'Temporal duro';
+  if (speedKmh < 118) return 'Temporal muy duro';
+  return 'Huracán';
+}
+
 /** Escala Douglas simplificada a partir de la altura significativa de oleaje. */
 export function getSeaState(waveHeight: number | null): string {
   if (waveHeight == null) {
@@ -315,6 +345,45 @@ export function getTodayHourlyWeather(weather: WeatherApiResponse): HourlyWeathe
   }
 
   return hours;
+}
+
+export function getTodayHourlyRain(weather: WeatherApiResponse): HourlyRain[] {
+  const hourly = weather.hourly;
+  if (!hourly?.precipitation || !hourly.precipitation_probability) {
+    return [];
+  }
+
+  const today = weather.current.time.slice(0, 10);
+  const fromHour = weather.current.time.slice(0, 13);
+  const hours: HourlyRain[] = [];
+
+  for (let index = 0; index < hourly.time.length; index += 1) {
+    const time = hourly.time[index];
+    if (!time.startsWith(today) || time < fromHour) {
+      continue;
+    }
+    const amount = hourly.precipitation[index];
+    const probability = hourly.precipitation_probability[index];
+    if (amount == null || probability == null) {
+      continue;
+    }
+    hours.push({ time, amount, probability });
+  }
+
+  return hours;
+}
+
+export function getTodayPrecipitationSum(weather: WeatherApiResponse): number | null {
+  const daily = weather.daily;
+  if (!daily) {
+    return null;
+  }
+  const today = weather.current.time.slice(0, 10);
+  const index = daily.time.indexOf(today);
+  if (index < 0) {
+    return null;
+  }
+  return daily.precipitation_sum[index] ?? null;
 }
 
 export function getTodayHourlyWaves(
