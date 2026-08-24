@@ -633,3 +633,9 @@ export function formatElapsedSince(fromIso: string, nowIso: string): string | nu
 export function getNextTide(tides: TideEvent[], nowIso: string): TideEvent | null {
   return getSurroundingTides(tides, nowIso).next;
 }
+
+/** Marea que cae en esa hora local (`14:37` → columna `14:00`). */
+export function getTideForHour(tides: TideEvent[], hourIso: string): TideEvent | null {
+  const hourKey = hourIso.slice(0, 13);
+  return tides.find((tide) => tide.time.slice(0, 13) === hourKey) ?? null;
+}

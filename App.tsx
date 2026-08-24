@@ -54,6 +54,7 @@ import {
   getMoonPhase,
   getSeaState,
   getBeaufortLabel,
+  getTideForHour,
   getTideSize,
   getTodayHourlyDetail,
   getTodayHourlyRain,
@@ -767,7 +768,7 @@ function Dashboard({ data }: { data: DashboardData }) {
           <View style={styles.hourlyTable}>
             <View style={styles.hourlyBoardLabels}>
               <View style={styles.hourlyLabelTime} />
-              <Text style={styles.hourlyBoardLabel}>Tiempo</Text>
+              <Text style={styles.hourlyBoardLabel} />
               <Text style={styles.hourlyBoardLabel}>Temp</Text>
               <Text style={styles.hourlyBoardLabel} />
               <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
@@ -776,7 +777,8 @@ function Dashboard({ data }: { data: DashboardData }) {
               <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
               <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
               <Text style={styles.hourlyBoardLabel}>Olas{'\n'}m</Text>
-              <Text style={styles.hourlyBoardLabel}>Periodo{'\n'}s</Text>
+              <Text style={styles.hourlyBoardLabel}>Periodo</Text>
+              <Text style={styles.hourlyBoardTideLabel}>Marea</Text>
               <Text style={styles.hourlyBoardLabel}>Humedad</Text>
             </View>
             <ScrollView
@@ -812,9 +814,12 @@ function Dashboard({ data }: { data: DashboardData }) {
                       <WindCompass degrees={hour.windDirection} size={22} />
                     </View>
                     <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
-                    <Text style={styles.hourlyBoardGusts}>{formatMetric(hour.windGusts, 0)}</Text>
+                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windGusts, 0)}</Text>
                     <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>
-                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.wavePeriod, 0)}</Text>
+                    <Text style={styles.hourlyBoardValue}>
+                      {hour.wavePeriod != null ? `${formatMetric(hour.wavePeriod, 0)}s` : '—'}
+                    </Text>
+                    <HourlyTideMark tide={getTideForHour(data.tidesToday, hour.time)} />
                     <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
                   </View>
                 );
@@ -828,6 +833,27 @@ function Dashboard({ data }: { data: DashboardData }) {
           </Text>
         ) : null}
       </Card>
+    </View>
+  );
+}
+
+function HourlyTideMark({ tide }: { tide: TideEvent | null }) {
+  const { COLORS, styles } = useAppChrome();
+  if (tide == null) {
+    return <View style={styles.hourlyTideMark} />;
+  }
+
+  const isHigh = tide.kind === 'pleamar';
+  const color = isHigh ? COLORS.wind : COLORS.temp;
+  const Icon = isHigh ? ArrowUp : ArrowDown;
+
+  return (
+    <View
+      style={styles.hourlyTideMark}
+      accessibilityLabel={`${isHigh ? 'Pleamar' : 'Bajamar'} ${formatTideClock(tide.time)} · ${formatMetric(tide.height, 2)} m`}
+    >
+      <Icon size={12} color={color} />
+      <Text style={[styles.hourlyTideClock, { color }]}>{formatTideClock(tide.time)}</Text>
     </View>
   );
 }
@@ -1358,6 +1384,23 @@ function createStyles(COLORS: ThemeColors) {
     lineHeight: 14,
     height: 28,
   },
+  hourlyBoardTideLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+    fontWeight: '400',
+    lineHeight: 14,
+    height: 36,
+  },
+  hourlyTideMark: {
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hourlyTideClock: {
+    fontSize: 10,
+    fontWeight: '400',
+    lineHeight: 12,
+  },
   hourlyBoardTime: {
     color: COLORS.muted,
     fontSize: 11,
@@ -1366,14 +1409,6 @@ function createStyles(COLORS: ThemeColors) {
   },
   hourlyBoardValue: {
     color: COLORS.text,
-    fontSize: 13,
-    fontWeight: '400',
-    lineHeight: 18,
-    height: 28,
-    textAlign: 'center',
-  },
-  hourlyBoardGusts: {
-    color: COLORS.accent,
     fontSize: 13,
     fontWeight: '400',
     lineHeight: 18,
