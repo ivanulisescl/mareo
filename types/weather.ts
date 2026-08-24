@@ -438,9 +438,11 @@ export function getTodayHourlyWaves(
   return hours;
 }
 
-export function getTodayHourlyDetail(
+export function getHourlyDetailForDay(
   weather: WeatherApiResponse,
   marine: MarineApiResponse | null,
+  dateIso: string,
+  fromHourIso?: string | null,
 ): HourlyDetail[] {
   const hourly = weather.hourly;
   if (
@@ -472,13 +474,12 @@ export function getTodayHourlyDetail(
     }
   }
 
-  const today = weather.current.time.slice(0, 10);
-  const fromHour = weather.current.time.slice(0, 13);
+  const fromHour = fromHourIso?.slice(0, 13) ?? null;
   const hours: HourlyDetail[] = [];
 
   for (let index = 0; index < hourly.time.length; index += 1) {
     const time = hourly.time[index];
-    if (!time.startsWith(today) || time < fromHour) {
+    if (!time.startsWith(dateIso) || (fromHour != null && time < fromHour)) {
       continue;
     }
     const weatherCode = hourly.weather_code[index];
@@ -522,6 +523,18 @@ export function getTodayHourlyDetail(
   }
 
   return hours;
+}
+
+export function getTodayHourlyDetail(
+  weather: WeatherApiResponse,
+  marine: MarineApiResponse | null,
+): HourlyDetail[] {
+  return getHourlyDetailForDay(
+    weather,
+    marine,
+    weather.current.time.slice(0, 10),
+    weather.current.time,
+  );
 }
 
 export function formatForecastDayLabel(dateIso: string, todayIso: string): string {

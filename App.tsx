@@ -14,6 +14,7 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  Droplet,
   Droplets,
   Gauge,
   LayoutGrid,
@@ -45,7 +46,7 @@ const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import greetingPhrases from './frases.json';
 import { useWeatherData } from './hooks/useWeatherData';
-import type { DashboardData, DayForecast, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
+import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
 import {
   degreesToCompass,
   formatElapsedSince,
@@ -54,6 +55,7 @@ import {
   getMoonPhase,
   getSeaState,
   getBeaufortLabel,
+  getHourlyDetailForDay,
   getTideForHour,
   getTideSize,
   getTodayHourlyDetail,
@@ -593,6 +595,9 @@ function Forecast({ data }: { data: DashboardData }) {
           key={day.date}
           day={day}
           todayIso={todayIso}
+          nowIso={data.weather.current.time}
+          weather={data.weather}
+          marine={data.marine}
           expanded={openDate === day.date}
           onToggle={() => setOpenDate((current) => (current === day.date ? null : day.date))}
         />
@@ -606,20 +611,59 @@ function Forecast({ data }: { data: DashboardData }) {
   );
 }
 
+function ForecastMetric({
+  icon: Icon,
+  tint,
+  value,
+}: {
+  icon: LucideIcon;
+  tint: string;
+  value: string;
+}) {
+  const { styles } = useAppChrome();
+  return (
+    <View style={styles.forecastMetric}>
+      <Icon size={14} color={tint} />
+      <Text style={styles.forecastMetricText}>{value}</Text>
+    </View>
+  );
+}
+
 function ForecastDayCard({
   day,
   todayIso,
+  nowIso,
+  weather,
+  marine,
   expanded,
   onToggle,
 }: {
   day: DayForecast;
   todayIso: string;
+  nowIso: string;
+  weather: DashboardData['weather'];
+  marine: DashboardData['marine'];
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const weather = getWeatherInfo(day.weatherCode);
-  const WeatherIcon = WEATHER_ICONS[weather.icon];
+  const weatherInfo = getWeatherInfo(day.weatherCode);
+  const WeatherIcon = WEATHER_ICONS[weatherInfo.icon];
   const { COLORS, styles } = useAppChrome();
+  const rainLabel = formatRainAmount(day.precipitationSum);
+  const rainText = rainLabel === '-' ? '-' : `${rainLabel} mm`;
+  const windText = getBeaufortLabel(day.windSpeedMax);
+  const seaText = getSeaState(day.waveHeightMax);
+  const hours = useMemo(() => {
+    if (!expanded) {
+      return [];
+    }
+    return getHourlyDetailForDay(
+      weather,
+      marine,
+      day.date,
+      day.date === todayIso ? nowIso : null,
+    );
+  }, [expanded, weather, marine, day.date, todayIso, nowIso]);
 
   return (
     <Card>
@@ -627,19 +671,19 @@ function ForecastDayCard({
         onPress={onToggle}
         style={styles.forecastHeader}
         accessibilityRole="button"
-        accessibilityLabel={`${formatForecastDayLabel(day.date, todayIso)}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
+        accessibilityLabel={`${formatForecastDayLabel(day.date, todayIso)}. ${weatherInfo.label}. Lluvia ${rainText}. Viento ${windText}. Mar ${seaText}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
       >
         <View style={[styles.iconBadge, { backgroundColor: `${COLORS.temp}22` }]}>
           <WeatherIcon size={18} color={COLORS.temp} />
         </View>
         <View style={styles.forecastHeaderText}>
           <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
-          <Text style={styles.forecastSummary}>{weather.label}</Text>
-          <Text style={styles.forecastSummary}>
-            {`${formatMetric(day.windSpeedMax, 0)} km/h`}
-            {day.waveHeightMax != null ? ` · ${getSeaState(day.waveHeightMax)}` : ''}
-            {day.wavePeriodMax != null ? ` · ${formatMetric(day.wavePeriodMax, 0)} s` : ''}
-          </Text>
+          <Text style={styles.forecastSummary}>{weatherInfo.label}</Text>
+          <View style={styles.forecastMetrics}>
+            <ForecastMetric icon={Droplet} tint={COLORS.accent} value={rainText} />
+            <ForecastMetric icon={Wind} tint={COLORS.wind} value={windText} />
+            <ForecastMetric icon={Waves} tint={COLORS.sea} value={seaText} />
+          </View>
         </View>
         <Text style={styles.forecastTemps}>
           {Math.round(day.temperatureMax)}°
@@ -654,29 +698,12 @@ function ForecastDayCard({
 
       {expanded ? (
         <View style={styles.forecastBody}>
-          <SummaryRow
-            icon={Wind}
-            tint={COLORS.wind}
-            label="Viento"
-            value={`${formatMetric(day.windSpeedMax, 0)} km/h ${degreesToCompass(day.windDirectionDominant)} · rachas ${formatMetric(day.windGustsMax, 0)}`}
+          <HourlyBoard
+            hours={hours}
+            tides={day.tides}
+            emptyMessage="Sin previsión horaria para este día."
+            marineMissing={marine == null}
           />
-          <SummaryRow
-            icon={Waves}
-            tint={COLORS.sea}
-            label="Mar"
-            value={`${formatMetric(day.waveHeightMax)} m · ${getSeaState(day.waveHeightMax)}${
-              day.wavePeriodMax != null ? ` · ${formatMetric(day.wavePeriodMax, 0)} s` : ''
-            }`}
-          />
-          <SummaryRow
-            icon={Thermometer}
-            tint={COLORS.sea}
-            label="Agua"
-            value={
-              day.waterTemperature != null ? `${formatMetric(day.waterTemperature, 1)}°` : '—'
-            }
-          />
-          <TideEventsList tides={day.tides} />
         </View>
       ) : null}
     </Card>
@@ -758,7 +785,7 @@ function SummaryRow({
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
-  const { COLORS, styles } = useAppChrome();
+  const { styles } = useAppChrome();
   const hours = useMemo(
     () => getTodayHourlyDetail(data.weather, data.marine),
     [data.weather, data.marine],
@@ -767,78 +794,103 @@ function Dashboard({ data }: { data: DashboardData }) {
   return (
     <View style={styles.cards}>
       <Card>
-        {hours.length === 0 ? (
-          <Text style={styles.fallbackHint}>Sin previsión horaria para hoy.</Text>
-        ) : (
-          <View style={styles.hourlyTable}>
-            <View style={styles.hourlyBoardLabels}>
-              <View style={styles.hourlyLabelTime} />
-              <Text style={styles.hourlyBoardLabel} />
-              <Text style={styles.hourlyBoardLabel}>Temp</Text>
-              <Text style={styles.hourlyBoardLabel}>Prob.</Text>
-              <Text style={styles.hourlyBoardLabel} />
-              <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
-              <Text style={styles.hourlyBoardLabel}>Dir.</Text>
-              <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
-              <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
-              <Text style={styles.hourlyBoardLabel}>Olas{'\n'}m</Text>
-              <Text style={styles.hourlyBoardLabel}>Periodo</Text>
-              <Text style={styles.hourlyBoardTideLabel}>Marea</Text>
-              <Text style={styles.hourlyBoardLabel}>Humedad</Text>
-            </View>
-            <ScrollView
-              horizontal
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.hourlyScroll}
-              contentContainerStyle={styles.hourlyScroller}
-            >
-              {hours.map((hour) => {
-                const hourWeather = getWeatherInfo(hour.weatherCode);
-                const HourIcon = WEATHER_ICONS[hourWeather.icon];
-                return (
-                  <View key={hour.time} style={styles.hourlyChip}>
-                    <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
-                    <View style={styles.hourlyIcon}>
-                      <HourIcon size={16} color={COLORS.temp} />
-                    </View>
-                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
-                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
-                    <View
-                      style={styles.hourlyIcon}
-                      accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
-                    >
-                      <RainDrop
-                        percent={hour.rainProbability}
-                        color={COLORS.accent}
-                        clipId={`d${hour.time.replace(/\W/g, '')}`}
-                      />
-                    </View>
-                    <Text style={styles.hourlyBoardValue}>{formatRainAmount(hour.rain)}</Text>
-                    <View style={styles.hourlyIcon}>
-                      <WindCompass degrees={hour.windDirection} size={22} />
-                    </View>
-                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
-                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windGusts, 0)}</Text>
-                    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>
-                    <Text style={styles.hourlyBoardValue}>
-                      {hour.wavePeriod != null ? `${formatMetric(hour.wavePeriod, 0)}s` : '—'}
-                    </Text>
-                    <HourlyTideMark tide={getTideForHour(data.tidesToday, hour.time)} />
-                    <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        )}
-        {data.marine == null ? (
-          <Text style={styles.fallbackHint}>
-            Sin datos marinos para esta ubicación (posible zona interior).
-          </Text>
-        ) : null}
+        <HourlyBoard
+          hours={hours}
+          tides={data.tidesToday}
+          emptyMessage="Sin previsión horaria para hoy."
+          marineMissing={data.marine == null}
+        />
       </Card>
     </View>
+  );
+}
+
+function HourlyBoard({
+  hours,
+  tides,
+  emptyMessage,
+  marineMissing,
+}: {
+  hours: HourlyDetail[];
+  tides: TideEvent[];
+  emptyMessage: string;
+  marineMissing?: boolean;
+}) {
+  const { COLORS, styles } = useAppChrome();
+
+  if (hours.length === 0) {
+    return <Text style={styles.fallbackHint}>{emptyMessage}</Text>;
+  }
+
+  return (
+    <>
+      <View style={styles.hourlyTable}>
+        <View style={styles.hourlyBoardLabels}>
+          <View style={styles.hourlyLabelTime} />
+          <Text style={styles.hourlyBoardLabel} />
+          <Text style={styles.hourlyBoardLabel}>Temp</Text>
+          <Text style={styles.hourlyBoardLabel}>Prob.</Text>
+          <Text style={styles.hourlyBoardLabel} />
+          <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
+          <Text style={styles.hourlyBoardLabel}>Dir.</Text>
+          <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
+          <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
+          <Text style={styles.hourlyBoardLabel}>Olas{'\n'}m</Text>
+          <Text style={styles.hourlyBoardLabel}>Periodo</Text>
+          <Text style={styles.hourlyBoardTideLabel}>Marea</Text>
+          <Text style={styles.hourlyBoardLabel}>Humedad</Text>
+        </View>
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.hourlyScroll}
+          contentContainerStyle={styles.hourlyScroller}
+        >
+          {hours.map((hour) => {
+            const hourWeather = getWeatherInfo(hour.weatherCode);
+            const HourIcon = WEATHER_ICONS[hourWeather.icon];
+            return (
+              <View key={hour.time} style={styles.hourlyChip}>
+                <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
+                <View style={styles.hourlyIcon}>
+                  <HourIcon size={16} color={COLORS.temp} />
+                </View>
+                <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
+                <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
+                <View
+                  style={styles.hourlyIcon}
+                  accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
+                >
+                  <RainDrop
+                    percent={hour.rainProbability}
+                    color={COLORS.accent}
+                    clipId={`d${hour.time.replace(/\W/g, '')}`}
+                  />
+                </View>
+                <Text style={styles.hourlyBoardValue}>{formatRainAmount(hour.rain)}</Text>
+                <View style={styles.hourlyIcon}>
+                  <WindCompass degrees={hour.windDirection} size={22} />
+                </View>
+                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
+                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windGusts, 0)}</Text>
+                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>
+                <Text style={styles.hourlyBoardValue}>
+                  {hour.wavePeriod != null ? `${formatMetric(hour.wavePeriod, 0)}s` : '—'}
+                </Text>
+                <HourlyTideMark tide={getTideForHour(tides, hour.time)} />
+                <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
+      {marineMissing ? (
+        <Text style={styles.fallbackHint}>
+          Sin datos marinos para esta ubicación (posible zona interior).
+        </Text>
+      ) : null}
+    </>
   );
 }
 
@@ -1517,6 +1569,19 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.muted,
     fontSize: 13,
     marginTop: 2,
+  },
+  forecastMetrics: {
+    marginTop: 8,
+    gap: 4,
+  },
+  forecastMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  forecastMetricText: {
+    color: COLORS.muted,
+    fontSize: 13,
   },
   forecastTemps: {
     color: COLORS.text,
