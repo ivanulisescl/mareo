@@ -93,6 +93,8 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'wind_direction_10m',
       'wind_gusts_10m',
       'precipitation',
+      'relative_humidity_2m',
+      'pressure_msl',
     ].join(','),
     daily: [
       'weather_code',

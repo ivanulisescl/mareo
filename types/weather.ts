@@ -25,6 +25,8 @@ export type WeatherCurrent = {
   wind_direction_10m: number;
   wind_gusts_10m: number;
   precipitation: number;
+  relative_humidity_2m: number;
+  pressure_msl: number;
 };
 
 export type WeatherApiResponse = {
@@ -41,6 +43,8 @@ export type WeatherApiResponse = {
     wind_direction_10m: string;
     wind_gusts_10m: string;
     precipitation: string;
+    relative_humidity_2m: string;
+    pressure_msl: string;
   };
   daily?: WeatherDaily;
   hourly?: WeatherHourly;

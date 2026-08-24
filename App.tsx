@@ -14,6 +14,8 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  Droplets,
+  Gauge,
   LayoutGrid,
   List,
   MapPin,
@@ -549,6 +551,30 @@ function Summary({ data }: { data: DashboardData }) {
               label="Luna"
               style={styles.summaryPairItem}
               value={`${moon.label} · ${moon.illumination}%`}
+            />
+          </View>
+          <View style={styles.summaryPair}>
+            <SummaryRow
+              icon={Droplets}
+              tint={COLORS.accent}
+              label="Humedad"
+              style={styles.summaryPairItem}
+              value={
+                current.relative_humidity_2m != null
+                  ? `${Math.round(current.relative_humidity_2m)}%`
+                  : '—'
+              }
+            />
+            <SummaryRow
+              icon={Gauge}
+              tint={COLORS.wind}
+              label="Presión"
+              style={styles.summaryPairItem}
+              value={
+                current.pressure_msl != null
+                  ? `${formatMetric(current.pressure_msl, 0)} hPa`
+                  : '—'
+              }
             />
           </View>
         </View>
