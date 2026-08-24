@@ -13,6 +13,7 @@ import {
   CloudLightning,
   CloudRain,
   CloudSnow,
+  Clock,
   CloudSun,
   Droplet,
   Droplets,
@@ -27,7 +28,8 @@ import {
   Waves,
   Wind,
 } from 'lucide-react-native';
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Image,
   Modal,
@@ -80,6 +82,30 @@ const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
 };
 
 type AppTab = 'resumen' | 'completa' | 'prediccion';
+type HourlyLayout = 'compact' | 'grouped';
+
+const HOURLY_LAYOUT_KEY = 'climareo-hourly-layout';
+
+function useHourlyLayout() {
+  const [layout, setLayout] = useState<HourlyLayout>('grouped');
+
+  useEffect(() => {
+    AsyncStorage.getItem(HOURLY_LAYOUT_KEY)
+      .then((stored) => {
+        if (stored === 'compact' || stored === 'grouped') {
+          setLayout(stored);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const selectLayout = useCallback((next: HourlyLayout) => {
+    setLayout(next);
+    AsyncStorage.setItem(HOURLY_LAYOUT_KEY, next).catch(() => {});
+  }, []);
+
+  return { layout, selectLayout };
+}
 
 function pickGreeting(): string {
   if (greetingPhrases.length === 0) {
@@ -785,7 +811,8 @@ function SummaryRow({
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
-  const { styles } = useAppChrome();
+  const { COLORS, styles } = useAppChrome();
+  const { layout, selectLayout } = useHourlyLayout();
   const hours = useMemo(
     () => getTodayHourlyDetail(data.weather, data.marine),
     [data.weather, data.marine],
@@ -793,8 +820,55 @@ function Dashboard({ data }: { data: DashboardData }) {
 
   return (
     <View style={styles.cards}>
+      <View
+        style={styles.hourlyLayoutToggle}
+        accessibilityRole="tablist"
+        accessibilityLabel="Formato de la tira horaria"
+      >
+        <Pressable
+          onPress={() => selectLayout('compact')}
+          style={[
+            styles.hourlyLayoutOption,
+            layout === 'compact' ? styles.hourlyLayoutOptionActive : null,
+          ]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: layout === 'compact' }}
+          accessibilityLabel="Formato compacto"
+        >
+          <List size={16} color={layout === 'compact' ? COLORS.accent : COLORS.muted} />
+          <Text
+            style={[
+              styles.hourlyLayoutLabel,
+              { color: layout === 'compact' ? COLORS.accent : COLORS.muted },
+            ]}
+          >
+            Compacta
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => selectLayout('grouped')}
+          style={[
+            styles.hourlyLayoutOption,
+            layout === 'grouped' ? styles.hourlyLayoutOptionActive : null,
+          ]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: layout === 'grouped' }}
+          accessibilityLabel="Formato agrupado"
+        >
+          <LayoutGrid size={16} color={layout === 'grouped' ? COLORS.accent : COLORS.muted} />
+          <Text
+            style={[
+              styles.hourlyLayoutLabel,
+              { color: layout === 'grouped' ? COLORS.accent : COLORS.muted },
+            ]}
+          >
+            Agrupada
+          </Text>
+        </Pressable>
+      </View>
       <Card>
         <HourlyBoard
+          grouped={layout === 'grouped'}
           hours={hours}
           tides={data.tidesToday}
           emptyMessage="Sin previsión horaria para hoy."
@@ -805,16 +879,48 @@ function Dashboard({ data }: { data: DashboardData }) {
   );
 }
 
+function HourlyGroup({
+  title,
+  tint,
+  children,
+}: {
+  title?: string;
+  tint: string;
+  children: ReactNode;
+}) {
+  const { styles } = useAppChrome();
+  return (
+    <View
+      style={[
+        styles.hourlyGroup,
+        { backgroundColor: `${tint}22` },
+        title ? styles.hourlyGroupLabeled : null,
+      ]}
+    >
+      {title ? (
+        <Text style={[styles.hourlyGroupTitle, { color: tint }]} numberOfLines={1}>
+          {title}
+        </Text>
+      ) : (
+        <View style={styles.hourlyGroupTitleSlot} />
+      )}
+      {children}
+    </View>
+  );
+}
+
 function HourlyBoard({
   hours,
   tides,
   emptyMessage,
   marineMissing,
+  grouped = false,
 }: {
   hours: HourlyDetail[];
   tides: TideEvent[];
   emptyMessage: string;
   marineMissing?: boolean;
+  grouped?: boolean;
 }) {
   const { COLORS, styles } = useAppChrome();
 
@@ -822,24 +928,60 @@ function HourlyBoard({
     return <Text style={styles.fallbackHint}>{emptyMessage}</Text>;
   }
 
+  const labels = grouped ? (
+    <View style={styles.hourlyBoardLabelsGrouped}>
+      <View style={styles.hourlyLabelTime} />
+      <HourlyGroup title="Tiempo" tint={COLORS.temp}>
+        <Text style={styles.hourlyBoardLabel} />
+        <Text style={styles.hourlyBoardLabel} />
+      </HourlyGroup>
+      <HourlyGroup title="Lluvia" tint={COLORS.accent}>
+        <Text style={styles.hourlyBoardLabel} />
+        <Text style={styles.hourlyBoardLabel} />
+        <Text style={styles.hourlyBoardLabel}>mm</Text>
+      </HourlyGroup>
+      <HourlyGroup title="Viento" tint={COLORS.wind}>
+        <Text style={styles.hourlyBoardLabel}>Dir.</Text>
+        <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
+        <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
+      </HourlyGroup>
+      <HourlyGroup title="Mar" tint={COLORS.sea}>
+        <Text style={styles.hourlyBoardLabel} numberOfLines={1}>
+          Olas (m)
+        </Text>
+        <Text style={styles.hourlyBoardLabel}>Periodo</Text>
+      </HourlyGroup>
+      <HourlyGroup title="Mareas" tint={COLORS.sea}>
+        <View style={styles.hourlyTideMark} />
+      </HourlyGroup>
+      <HourlyGroup title="Aire" tint={COLORS.moon}>
+        <Text style={styles.hourlyBoardLabel}>Humedad</Text>
+      </HourlyGroup>
+    </View>
+  ) : (
+    <View style={styles.hourlyBoardLabels}>
+      <View style={styles.hourlyLabelTime} />
+      <Text style={styles.hourlyBoardLabel} />
+      <Text style={styles.hourlyBoardLabel} />
+      <Text style={styles.hourlyBoardLabel} />
+      <Text style={styles.hourlyBoardLabel} />
+      <Text style={styles.hourlyBoardLabel}>mm</Text>
+      <Text style={styles.hourlyBoardLabel}>Dir.</Text>
+      <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
+      <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
+      <Text style={styles.hourlyBoardLabel} numberOfLines={1}>
+        Olas (m)
+      </Text>
+      <Text style={styles.hourlyBoardLabel}>Periodo</Text>
+      <Text style={styles.hourlyBoardTideLabel}>Mareas</Text>
+      <Text style={styles.hourlyBoardLabel}>Humedad</Text>
+    </View>
+  );
+
   return (
     <>
       <View style={styles.hourlyTable}>
-        <View style={styles.hourlyBoardLabels}>
-          <View style={styles.hourlyLabelTime} />
-          <Text style={styles.hourlyBoardLabel} />
-          <Text style={styles.hourlyBoardLabel}>Temp</Text>
-          <Text style={styles.hourlyBoardLabel}>Prob.</Text>
-          <Text style={styles.hourlyBoardLabel} />
-          <Text style={styles.hourlyBoardLabel}>Lluvia{'\n'}mm</Text>
-          <Text style={styles.hourlyBoardLabel}>Dir.</Text>
-          <Text style={styles.hourlyBoardLabel}>Viento{'\n'}km/h</Text>
-          <Text style={styles.hourlyBoardLabel}>Rachas{'\n'}km/h</Text>
-          <Text style={styles.hourlyBoardLabel}>Olas{'\n'}m</Text>
-          <Text style={styles.hourlyBoardLabel}>Periodo</Text>
-          <Text style={styles.hourlyBoardTideLabel}>Marea</Text>
-          <Text style={styles.hourlyBoardLabel}>Humedad</Text>
-        </View>
+        {labels}
         <ScrollView
           horizontal
           nestedScrollEnabled
@@ -847,42 +989,9 @@ function HourlyBoard({
           style={styles.hourlyScroll}
           contentContainerStyle={styles.hourlyScroller}
         >
-          {hours.map((hour) => {
-            const hourWeather = getWeatherInfo(hour.weatherCode);
-            const HourIcon = WEATHER_ICONS[hourWeather.icon];
-            return (
-              <View key={hour.time} style={styles.hourlyChip}>
-                <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
-                <View style={styles.hourlyIcon}>
-                  <HourIcon size={16} color={COLORS.temp} />
-                </View>
-                <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
-                <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
-                <View
-                  style={styles.hourlyIcon}
-                  accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
-                >
-                  <RainDrop
-                    percent={hour.rainProbability}
-                    color={COLORS.accent}
-                    clipId={`d${hour.time.replace(/\W/g, '')}`}
-                  />
-                </View>
-                <Text style={styles.hourlyBoardValue}>{formatRainAmount(hour.rain)}</Text>
-                <View style={styles.hourlyIcon}>
-                  <WindCompass degrees={hour.windDirection} size={22} />
-                </View>
-                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
-                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windGusts, 0)}</Text>
-                <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>
-                <Text style={styles.hourlyBoardValue}>
-                  {hour.wavePeriod != null ? `${formatMetric(hour.wavePeriod, 0)}s` : '—'}
-                </Text>
-                <HourlyTideMark tide={getTideForHour(tides, hour.time)} />
-                <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
-              </View>
-            );
-          })}
+          {hours.map((hour) => (
+            <HourlyBoardHour key={hour.time} hour={hour} tides={tides} grouped={grouped} />
+          ))}
         </ScrollView>
       </View>
       {marineMissing ? (
@@ -891,6 +1000,114 @@ function HourlyBoard({
         </Text>
       ) : null}
     </>
+  );
+}
+
+function HourlyBoardHour({
+  hour,
+  tides,
+  grouped,
+}: {
+  hour: HourlyDetail;
+  tides: TideEvent[];
+  grouped: boolean;
+}) {
+  const { COLORS, styles } = useAppChrome();
+  const hourWeather = getWeatherInfo(hour.weatherCode);
+  const HourIcon = WEATHER_ICONS[hourWeather.icon];
+
+  const weatherIcon = (
+    <View style={styles.hourlyIcon}>
+      <HourIcon size={16} color={COLORS.temp} />
+    </View>
+  );
+  const temperature = (
+    <Text style={styles.hourlyBoardValue}>{Math.round(hour.temperature)}º</Text>
+  );
+  const rainProbability = (
+    <Text style={styles.hourlyBoardValue}>{Math.round(hour.rainProbability)}%</Text>
+  );
+  const rainDrop = (
+    <View
+      style={styles.hourlyIcon}
+      accessibilityLabel={`Probabilidad de lluvia ${Math.round(hour.rainProbability)}%`}
+    >
+      <RainDrop
+        percent={hour.rainProbability}
+        color={COLORS.accent}
+        clipId={`d${hour.time.replace(/\W/g, '')}`}
+      />
+    </View>
+  );
+  const rainAmount = (
+    <Text style={styles.hourlyBoardValue}>{formatRainAmount(hour.rain)}</Text>
+  );
+  const windDir = (
+    <View style={styles.hourlyIcon}>
+      <WindCompass degrees={hour.windDirection} size={22} />
+    </View>
+  );
+  const windSpeed = (
+    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windSpeed, 0)}</Text>
+  );
+  const windGusts = (
+    <Text style={styles.hourlyBoardValue}>{formatMetric(hour.windGusts, 0)}</Text>
+  );
+  const waves = <Text style={styles.hourlyBoardValue}>{formatMetric(hour.waveHeight)}</Text>;
+  const period = (
+    <Text style={styles.hourlyBoardValue}>
+      {hour.wavePeriod != null ? `${formatMetric(hour.wavePeriod, 0)}s` : '—'}
+    </Text>
+  );
+  const tide = <HourlyTideMark tide={getTideForHour(tides, hour.time)} />;
+  const humidity = (
+    <Text style={styles.hourlyBoardValue}>{Math.round(hour.humidity)}%</Text>
+  );
+
+  if (!grouped) {
+    return (
+      <View style={styles.hourlyChip}>
+        <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
+        {weatherIcon}
+        {temperature}
+        {rainProbability}
+        {rainDrop}
+        {rainAmount}
+        {windDir}
+        {windSpeed}
+        {windGusts}
+        {waves}
+        {period}
+        {tide}
+        {humidity}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.hourlyChipGrouped}>
+      <Text style={styles.hourlyBoardTime}>{formatTideClock(hour.time)}</Text>
+      <HourlyGroup tint={COLORS.temp}>
+        {weatherIcon}
+        {temperature}
+      </HourlyGroup>
+      <HourlyGroup tint={COLORS.accent}>
+        {rainProbability}
+        {rainDrop}
+        {rainAmount}
+      </HourlyGroup>
+      <HourlyGroup tint={COLORS.wind}>
+        {windDir}
+        {windSpeed}
+        {windGusts}
+      </HourlyGroup>
+      <HourlyGroup tint={COLORS.sea}>
+        {waves}
+        {period}
+      </HourlyGroup>
+      <HourlyGroup tint={COLORS.sea}>{tide}</HourlyGroup>
+      <HourlyGroup tint={COLORS.moon}>{humidity}</HourlyGroup>
+    </View>
   );
 }
 
@@ -1060,7 +1277,7 @@ function BottomNav({ tab, onChange }: { tab: AppTab; onChange: (next: AppTab) =>
       />
       <TabButton
         active={tab === 'completa'}
-        icon={List}
+        icon={Clock}
         label="Horaria"
         onPress={() => onChange('completa')}
       />
@@ -1188,6 +1405,34 @@ function createStyles(COLORS: ThemeColors) {
   },
   cards: {
     gap: 14,
+  },
+  hourlyLayoutToggle: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    gap: 6,
+    padding: 4,
+    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  hourlyLayoutOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  hourlyLayoutOptionActive: {
+    backgroundColor: COLORS.chip,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  hourlyLayoutLabel: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: COLORS.card,
@@ -1430,9 +1675,42 @@ function createStyles(COLORS: ThemeColors) {
     paddingTop: 0,
   },
   hourlyBoardLabels: {
-    width: 64,
+    width: 76,
     gap: 2,
     paddingTop: 0,
+  },
+  hourlyBoardLabelsGrouped: {
+    width: 76,
+    gap: 8,
+    paddingTop: 0,
+  },
+  hourlyChipGrouped: {
+    minWidth: 48,
+    alignItems: 'center',
+    gap: 8,
+  },
+  hourlyGroup: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: 2,
+    borderRadius: 8,
+    paddingBottom: 4,
+    paddingHorizontal: 2,
+    overflow: 'hidden',
+  },
+  hourlyGroupLabeled: {
+    alignItems: 'stretch',
+  },
+  hourlyGroupTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 14,
+    height: 16,
+    paddingHorizontal: 4,
+  },
+  hourlyGroupTitleSlot: {
+    height: 16,
+    alignSelf: 'stretch',
   },
   hourlyBoardLabel: {
     color: COLORS.muted,
