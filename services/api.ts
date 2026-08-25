@@ -199,12 +199,12 @@ export async function fetchMarine(coords: Coordinates): Promise<MarineApiRespons
     fetchJson<MarineApiResponse>(marineParams(coords, waterFields)),
   ]);
 
-  if (wavesResult.status === 'rejected' && waterResult.status === 'rejected') {
-    throw wavesResult.reason instanceof Error
-      ? wavesResult.reason
-      : new Error('No se pudieron obtener los datos marinos');
-  }
   if (wavesResult.status === 'rejected') {
+    if (waterResult.status === 'rejected') {
+      throw wavesResult.reason instanceof Error
+        ? wavesResult.reason
+        : new Error('No se pudieron obtener los datos marinos');
+    }
     return waterResult.value;
   }
   if (waterResult.status === 'rejected') {

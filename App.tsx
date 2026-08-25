@@ -1503,7 +1503,7 @@ function RainDrop({
   const clipY = 24 * (1 - fill / 100);
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityElementsHidden>
+    <Svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
       <Path
         d={DROPLET_PATH}
         fill="none"
