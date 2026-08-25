@@ -30,7 +30,7 @@ import {
   Wind,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Image,
   Modal,
@@ -40,6 +40,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -55,6 +57,7 @@ import {
   degreesToCompass,
   formatElapsedSince,
   formatForecastDayLabel,
+  formatHourlyDayLabel,
   formatTideClock,
   getMoonPhase,
   getSeaState,
@@ -62,7 +65,8 @@ import {
   getHourlyDetailForDay,
   getTideForHour,
   getTideSize,
-  getTodayHourlyDetail,
+  getUpcomingHourlyDetail,
+  groupHoursByDay,
   getTodayHourlyRain,
   getTodayHourlyWaves,
   getTodayHourlyWeather,
@@ -972,9 +976,14 @@ function SummaryRow({
 function Dashboard({ data }: { data: DashboardData }) {
   const { COLORS, styles, layout, selectLayout } = useAppChrome();
   const hours = useMemo(
-    () => getTodayHourlyDetail(data.weather, data.marine),
+    () => getUpcomingHourlyDetail(data.weather, data.marine),
     [data.weather, data.marine],
   );
+  const tides = useMemo(
+    () => data.forecastDays.flatMap((day) => day.tides),
+    [data.forecastDays],
+  );
+  const todayIso = data.weather.current.time.slice(0, 10);
 
   return (
     <View style={styles.cards}>
@@ -1028,8 +1037,9 @@ function Dashboard({ data }: { data: DashboardData }) {
         <HourlyBoard
           grouped={layout === 'grouped'}
           hours={hours}
-          tides={data.tidesToday}
-          emptyMessage="Sin previsión horaria para hoy."
+          tides={tides}
+          todayIso={todayIso}
+          emptyMessage="Sin previsión horaria disponible."
           marineMissing={data.marine == null}
         />
       </Card>
@@ -1075,21 +1085,63 @@ function HourlyBoard({
   emptyMessage,
   marineMissing,
   grouped = false,
+  todayIso,
 }: {
   hours: HourlyDetail[];
   tides: TideEvent[];
   emptyMessage: string;
   marineMissing?: boolean;
   grouped?: boolean;
+  /** Si se indica, la tira se parte en bloques por día con su propia cabecera. */
+  todayIso?: string;
 }) {
   const { COLORS, styles } = useAppChrome();
+  const scrollRef = useRef<ScrollView>(null);
+  const dayOffsets = useRef<Record<string, number>>({});
+  const [activeDay, setActiveDay] = useState<string | null>(null);
+  const days = useMemo(
+    () => (todayIso != null ? groupHoursByDay(hours) : null),
+    [todayIso, hours],
+  );
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!days) {
+        return;
+      }
+      const scrolled = event.nativeEvent.contentOffset.x + 8;
+      let reached = days[0]?.date ?? null;
+      for (const day of days) {
+        const offset = dayOffsets.current[day.date];
+        if (offset != null && offset <= scrolled) {
+          reached = day.date;
+        }
+      }
+      setActiveDay((current) => (current === reached ? current : reached));
+    },
+    [days],
+  );
+
+  const jumpToDay = useCallback((date: string) => {
+    const offset = dayOffsets.current[date];
+    if (offset == null) {
+      return;
+    }
+    scrollRef.current?.scrollTo({ x: offset, animated: true });
+    setActiveDay(date);
+  }, []);
 
   if (hours.length === 0) {
     return <Text style={styles.fallbackHint}>{emptyMessage}</Text>;
   }
 
+  const visibleDay = days?.some((day) => day.date === activeDay)
+    ? activeDay
+    : days?.[0]?.date ?? null;
+
   const labels = grouped ? (
     <View style={styles.hourlyBoardLabelsGrouped}>
+      {days ? <View style={styles.hourlyDayHeaderSlot} /> : null}
       <View style={styles.hourlyLabelTime} />
       <HourlyGroup title="Tiempo" tint={COLORS.temp}>
         <Text style={styles.hourlyBoardLabel} />
@@ -1124,6 +1176,7 @@ function HourlyBoard({
     </View>
   ) : (
     <View style={styles.hourlyBoardLabels}>
+      {days ? <View style={styles.hourlyDayHeaderSlot} /> : null}
       <View style={styles.hourlyLabelTime} />
       <Text style={styles.hourlyBoardLabel} />
       <Text style={styles.hourlyBoardLabel}>Temp</Text>
@@ -1144,9 +1197,44 @@ function HourlyBoard({
 
   return (
     <>
+      {days && days.length > 1 && todayIso ? (
+        <ScrollView
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hourlyDayNav}
+          accessibilityRole="tablist"
+          accessibilityLabel="Días con previsión horaria"
+        >
+          {days.map((day) => {
+            const active = day.date === visibleDay;
+            return (
+              <Pressable
+                key={day.date}
+                onPress={() => jumpToDay(day.date)}
+                style={[styles.hourlyDayChip, active ? styles.hourlyDayChipActive : null]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Ir a ${formatForecastDayLabel(day.date, todayIso)}`}
+              >
+                <Text
+                  style={[
+                    styles.hourlyDayChipLabel,
+                    { color: active ? COLORS.accent : COLORS.muted },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatHourlyDayLabel(day.date, todayIso)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
       <View style={[styles.hourlyTable, grouped ? styles.hourlyTableGrouped : null]}>
         {labels}
         <ScrollView
+          ref={scrollRef}
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
@@ -1155,10 +1243,45 @@ function HourlyBoard({
             styles.hourlyScroller,
             grouped ? styles.hourlyScrollerGrouped : null,
           ]}
+          onScroll={days ? handleScroll : undefined}
+          scrollEventThrottle={64}
         >
-          {hours.map((hour) => (
-            <HourlyBoardHour key={hour.time} hour={hour} tides={tides} grouped={grouped} />
-          ))}
+          {days && todayIso
+            ? days.map((day, index) => (
+                <View
+                  key={day.date}
+                  onLayout={(event) => {
+                    dayOffsets.current[day.date] = event.nativeEvent.layout.x;
+                  }}
+                  style={[
+                    styles.hourlyDayBlock,
+                    grouped ? styles.hourlyDayBlockGrouped : null,
+                    index > 0 ? styles.hourlyDayBlockSplit : null,
+                  ]}
+                >
+                  <Text style={styles.hourlyDayHeader} numberOfLines={1}>
+                    {formatForecastDayLabel(day.date, todayIso)}
+                  </Text>
+                  <View
+                    style={[
+                      styles.hourlyDayHours,
+                      grouped ? styles.hourlyDayHoursGrouped : null,
+                    ]}
+                  >
+                    {day.hours.map((hour) => (
+                      <HourlyBoardHour
+                        key={hour.time}
+                        hour={hour}
+                        tides={tides}
+                        grouped={grouped}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))
+            : hours.map((hour) => (
+                <HourlyBoardHour key={hour.time} hour={hour} tides={tides} grouped={grouped} />
+              ))}
         </ScrollView>
       </View>
       {marineMissing ? (
@@ -1170,7 +1293,7 @@ function HourlyBoard({
   );
 }
 
-function HourlyBoardHour({
+const HourlyBoardHour = memo(function HourlyBoardHour({
   hour,
   tides,
   grouped,
@@ -1276,7 +1399,7 @@ function HourlyBoardHour({
       <HourlyGroup tint={COLORS.moon}>{humidity}</HourlyGroup>
     </View>
   );
-}
+});
 
 function HourlyTideMark({ tide }: { tide: TideEvent | null }) {
   const { COLORS, styles } = useAppChrome();
@@ -1838,6 +1961,55 @@ function createStyles(COLORS: ThemeColors) {
   },
   hourlyTableGrouped: {
     gap: 4,
+  },
+  hourlyDayNav: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingBottom: 12,
+    paddingRight: 4,
+  },
+  hourlyDayChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  hourlyDayChipActive: {
+    backgroundColor: COLORS.chip,
+    borderColor: COLORS.accent,
+  },
+  hourlyDayChipLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hourlyDayBlock: {
+    gap: 2,
+  },
+  hourlyDayBlockGrouped: {
+    gap: 3,
+  },
+  hourlyDayBlockSplit: {
+    paddingLeft: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
+  },
+  hourlyDayHours: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  hourlyDayHoursGrouped: {
+    gap: 2,
+  },
+  hourlyDayHeader: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+    height: 18,
+  },
+  hourlyDayHeaderSlot: {
+    height: 18,
   },
   hourlyLabels: {
     width: 52,

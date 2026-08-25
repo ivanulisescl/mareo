@@ -438,10 +438,10 @@ export function getTodayHourlyWaves(
   return hours;
 }
 
-export function getHourlyDetailForDay(
+function collectHourlyDetail(
   weather: WeatherApiResponse,
   marine: MarineApiResponse | null,
-  dateIso: string,
+  dateIso: string | null,
   fromHourIso?: string | null,
 ): HourlyDetail[] {
   const hourly = weather.hourly;
@@ -479,7 +479,10 @@ export function getHourlyDetailForDay(
 
   for (let index = 0; index < hourly.time.length; index += 1) {
     const time = hourly.time[index];
-    if (!time.startsWith(dateIso) || (fromHour != null && time < fromHour)) {
+    if (
+      (dateIso != null && !time.startsWith(dateIso)) ||
+      (fromHour != null && time < fromHour)
+    ) {
       continue;
     }
     const weatherCode = hourly.weather_code[index];
@@ -525,16 +528,40 @@ export function getHourlyDetailForDay(
   return hours;
 }
 
-export function getTodayHourlyDetail(
+export function getHourlyDetailForDay(
+  weather: WeatherApiResponse,
+  marine: MarineApiResponse | null,
+  dateIso: string,
+  fromHourIso?: string | null,
+): HourlyDetail[] {
+  return collectHourlyDetail(weather, marine, dateIso, fromHourIso);
+}
+
+/** Tira horaria continua: desde la hora actual hasta el final de la previsión. */
+export function getUpcomingHourlyDetail(
   weather: WeatherApiResponse,
   marine: MarineApiResponse | null,
 ): HourlyDetail[] {
-  return getHourlyDetailForDay(
-    weather,
-    marine,
-    weather.current.time.slice(0, 10),
-    weather.current.time,
-  );
+  return collectHourlyDetail(weather, marine, null, weather.current.time);
+}
+
+export function groupHoursByDay(hours: HourlyDetail[]): Array<{
+  date: string;
+  hours: HourlyDetail[];
+}> {
+  const days: Array<{ date: string; hours: HourlyDetail[] }> = [];
+
+  for (const hour of hours) {
+    const date = hour.time.slice(0, 10);
+    const current = days[days.length - 1];
+    if (current?.date === date) {
+      current.hours.push(hour);
+    } else {
+      days.push({ date, hours: [hour] });
+    }
+  }
+
+  return days;
 }
 
 export function formatForecastDayLabel(dateIso: string, todayIso: string): string {
@@ -552,6 +579,26 @@ export function formatForecastDayLabel(dateIso: string, todayIso: string): strin
   const weekday = date.toLocaleDateString('es-ES', { weekday: 'long' });
   const dayLabel = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayLabel}`;
+}
+
+/** Etiqueta breve para cabeceras de la tira horaria (`Hoy`, `Mañana`, `Mié 27`). */
+export function formatHourlyDayLabel(dateIso: string, todayIso: string): string {
+  if (dateIso === todayIso) {
+    return 'Hoy';
+  }
+
+  const [year, month, day] = todayIso.split('-').map(Number);
+  const tomorrowIso = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+  if (dateIso === tomorrowIso) {
+    return 'Mañana';
+  }
+
+  const date = new Date(`${dateIso}T12:00:00`);
+  const weekday = date
+    .toLocaleDateString('es-ES', { weekday: 'short' })
+    .replace('.', '');
+  const dayNumber = date.toLocaleDateString('es-ES', { day: 'numeric' });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayNumber}`;
 }
 
 /** Interpreta horas locales sin zona (Open-Meteo / Anuario de Mareas). */
