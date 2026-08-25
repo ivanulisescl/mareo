@@ -772,6 +772,7 @@ function Summary({ data }: { data: DashboardData }) {
                 label="UV"
                 value={uvHeadline}
                 detail={uvDetail}
+                weight={1.3}
               />
             </View>
           </View>
@@ -787,23 +788,26 @@ function AirMetric({
   label,
   value,
   detail,
+  weight = 1,
 }: {
   icon: LucideIcon;
   tint: string;
   label: string;
   value: string;
   detail?: string;
+  /** Reparte el ancho según lo que ocupa cada valor. */
+  weight?: number;
 }) {
   const { styles } = useAppChrome();
   return (
-    <View style={styles.airItem}>
-      <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
-        <Icon size={16} color={tint} />
+    <View style={[styles.airItem, { flex: weight }]}>
+      <View style={styles.airItemHead}>
+        <Icon size={13} color={tint} />
+        <Text style={styles.airLabel} numberOfLines={1}>
+          {label}
+        </Text>
       </View>
-      <Text style={styles.metricLabel} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={styles.airValue} numberOfLines={1}>
+      <Text style={styles.airValue} numberOfLines={2}>
         {value}
       </Text>
       {detail ? (
@@ -1971,35 +1975,44 @@ function createStyles(COLORS: ThemeColors) {
   airGroup: {
     backgroundColor: COLORS.chip,
     borderRadius: 14,
-    padding: 12,
-    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 5,
   },
   airGroupTitle: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   airRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: 8,
   },
   airItem: {
-    flex: 1,
     minWidth: 0,
+    alignItems: 'center',
+    gap: 1,
+  },
+  airItemHead: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
+  airLabel: {
+    color: COLORS.muted,
+    fontSize: 11,
+  },
   airValue: {
     color: COLORS.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
   },
   airDetail: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
   },
   summaryRow: {
