@@ -27,6 +27,7 @@ export type WeatherCurrent = {
   precipitation: number;
   relative_humidity_2m: number;
   pressure_msl: number;
+  uv_index: number;
 };
 
 export type WeatherApiResponse = {
@@ -45,6 +46,7 @@ export type WeatherApiResponse = {
     precipitation: string;
     relative_humidity_2m: string;
     pressure_msl: string;
+    uv_index: string;
   };
   daily?: WeatherDaily;
   hourly?: WeatherHourly;
@@ -113,6 +115,7 @@ export type WeatherDaily = {
   wind_speed_10m_max: number[];
   wind_gusts_10m_max: number[];
   wind_direction_10m_dominant: number[];
+  uv_index_max: number[];
 };
 
 export type MarineCurrent = {
@@ -274,6 +277,19 @@ export function getSeaState(waveHeight: number | null): string {
   return 'Mar arbolada';
 }
 
+/** Categorías de la OMS para el índice UV, que se informa redondeado. */
+export function getUvLabel(uvIndex: number | null): string {
+  if (uvIndex == null) {
+    return 'Sin datos';
+  }
+  const index = Math.round(uvIndex);
+  if (index <= 2) return 'Bajo';
+  if (index <= 5) return 'Moderado';
+  if (index <= 7) return 'Alto';
+  if (index <= 10) return 'Muy alto';
+  return 'Extremo';
+}
+
 /** Clasifica la marea del día por amplitud (pleamar − bajamar), típica de la costa cantábrica. */
 export function getTideSize(tides: TideEvent[]): 'pequeña' | 'mediana' | 'grande' | null {
   if (tides.length === 0) {
@@ -407,6 +423,19 @@ export function getTodayPrecipitationSum(weather: WeatherApiResponse): number | 
     return null;
   }
   return daily.precipitation_sum[index] ?? null;
+}
+
+export function getTodayUvMax(weather: WeatherApiResponse): number | null {
+  const daily = weather.daily;
+  if (!daily?.uv_index_max) {
+    return null;
+  }
+  const today = weather.current.time.slice(0, 10);
+  const index = daily.time.indexOf(today);
+  if (index < 0) {
+    return null;
+  }
+  return daily.uv_index_max[index] ?? null;
 }
 
 export function getTodayHourlyWaves(

@@ -65,6 +65,8 @@ import {
   getHourlyDetailForDay,
   getTideForHour,
   getTideSize,
+  getTodayUvMax,
+  getUvLabel,
   getUpcomingHourlyDetail,
   groupHoursByDay,
   getTodayHourlyRain,
@@ -539,6 +541,11 @@ function Summary({ data }: { data: DashboardData }) {
       : rainToday != null && rainToday >= 0.1
         ? `No llueve · ${formatMetric(rainToday)} mm hoy`
         : 'Sin lluvia prevista hoy';
+  const uvNow = current.uv_index ?? null;
+  const uvMaxToday = getTodayUvMax(data.weather);
+  const uvHeadline =
+    uvNow != null ? `${Math.round(uvNow)} · ${getUvLabel(uvNow)}` : 'Sin datos';
+  const uvDetail = uvMaxToday != null ? `Máx. hoy ${Math.round(uvMaxToday)}` : undefined;
 
   return (
     <View style={styles.cards}>
@@ -736,32 +743,74 @@ function Summary({ data }: { data: DashboardData }) {
               value={`${moon.label} · ${moon.illumination}%`}
             />
           </View>
-          <View style={styles.summaryPair}>
-            <SummaryRow
-              icon={Droplets}
-              tint={COLORS.accent}
-              label="Humedad"
-              style={styles.summaryPairItem}
-              value={
-                current.relative_humidity_2m != null
-                  ? `${Math.round(current.relative_humidity_2m)}%`
-                  : '—'
-              }
-            />
-            <SummaryRow
-              icon={Gauge}
-              tint={COLORS.wind}
-              label="Presión"
-              style={styles.summaryPairItem}
-              value={
-                current.pressure_msl != null
-                  ? `${formatMetric(current.pressure_msl, 0)} hPa`
-                  : '—'
-              }
-            />
+          <View style={styles.airGroup}>
+            <Text style={styles.airGroupTitle}>Aire</Text>
+            <View style={styles.airRow}>
+              <AirMetric
+                icon={Droplets}
+                tint={COLORS.accent}
+                label="Humedad"
+                value={
+                  current.relative_humidity_2m != null
+                    ? `${Math.round(current.relative_humidity_2m)}%`
+                    : '—'
+                }
+              />
+              <AirMetric
+                icon={Gauge}
+                tint={COLORS.wind}
+                label="Presión"
+                value={
+                  current.pressure_msl != null
+                    ? `${formatMetric(current.pressure_msl, 0)} hPa`
+                    : '—'
+                }
+              />
+              <AirMetric
+                icon={Sun}
+                tint={COLORS.temp}
+                label="UV"
+                value={uvHeadline}
+                detail={uvDetail}
+              />
+            </View>
           </View>
         </View>
       </Card>
+    </View>
+  );
+}
+
+function AirMetric({
+  icon: Icon,
+  tint,
+  label,
+  value,
+  detail,
+}: {
+  icon: LucideIcon;
+  tint: string;
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  const { styles } = useAppChrome();
+  return (
+    <View style={styles.airItem}>
+      <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
+        <Icon size={16} color={tint} />
+      </View>
+      <Text style={styles.metricLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.airValue} numberOfLines={1}>
+        {value}
+      </Text>
+      {detail ? (
+        <Text style={styles.airDetail} numberOfLines={1}>
+          {detail}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -1918,6 +1967,40 @@ function createStyles(COLORS: ThemeColors) {
   summaryPairItem: {
     flex: 1,
     minWidth: 0,
+  },
+  airGroup: {
+    backgroundColor: COLORS.chip,
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+  },
+  airGroupTitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  airRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  airItem: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    gap: 4,
+  },
+  airValue: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  airDetail: {
+    color: COLORS.muted,
+    fontSize: 12,
+    textAlign: 'center',
   },
   summaryRow: {
     flexDirection: 'row',
