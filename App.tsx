@@ -231,6 +231,14 @@ const DOUGLAS_SCALE: Array<{ name: string; range: string }> = [
   { name: 'Mar arbolada', range: '≥ 9 m' },
 ];
 
+const UV_SCALE: Array<{ name: string; range: string }> = [
+  { name: 'Bajo', range: '0–2' },
+  { name: 'Moderado', range: '3–5' },
+  { name: 'Alto', range: '6–7' },
+  { name: 'Muy alto', range: '8–10' },
+  { name: 'Extremo', range: '≥ 11' },
+];
+
 const TIDE_SCALE: Array<{ name: string; range: string }> = [
   { name: 'Pequeña', range: '< 1,8 m' },
   { name: 'Mediana', range: '1,8–2,8 m' },
@@ -292,6 +300,17 @@ function InfoSheet({ visible, onClose }: { visible: boolean; onClose: () => void
               Escala Douglas simplificada, según la altura significativa de ola.
             </Text>
             <ScaleTable rows={DOUGLAS_SCALE} />
+
+            <Text style={styles.infoBlockTitle}>Índice UV</Text>
+            <Text style={styles.infoBody}>
+              Categorías de la OMS sobre el índice redondeado. Indica la intensidad de la
+              radiación ultravioleta solar.
+            </Text>
+            <ScaleTable rows={UV_SCALE} />
+            <Text style={styles.infoNote}>
+              Desde «Alto» conviene protección solar, sombra y gafas; en «Muy alto» y «Extremo»,
+              evita la exposición en las horas centrales del día.
+            </Text>
 
             <Text style={styles.infoBlockTitle}>Marea del día</Text>
             <Text style={styles.infoBody}>
@@ -530,6 +549,10 @@ function Summary({ data }: { data: DashboardData }) {
       ? `${tideTrend} desde hace ${tideElapsed}`
       : tideTrend ?? 'Sin datos';
   const moon = getMoonPhase(data.weather.current.time);
+  const waterTemp =
+    marine?.sea_surface_temperature != null
+      ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
+      : '—';
   const currentRain = current.precipitation ?? 0;
   const rainProbability = hourlyRain[0]?.probability ?? null;
   const rainToday = getTodayPrecipitationSum(data.weather);
@@ -679,6 +702,13 @@ function Summary({ data }: { data: DashboardData }) {
             tint={COLORS.sea}
             label="Mar"
             value={getSeaState(marine?.wave_height ?? null)}
+            trailing={
+              <View style={styles.summaryRowTrailing}>
+                <Thermometer size={14} color={COLORS.sea} />
+                <Text style={styles.summaryRowTrailingValue}>{waterTemp}</Text>
+              </View>
+            }
+            accessibilityValue={`${getSeaState(marine?.wave_height ?? null)}. Agua ${waterTemp}`}
             expandable
             expanded={seaOpen}
             onToggle={() => setSeaOpen((open) => !open)}
@@ -723,26 +753,6 @@ function Summary({ data }: { data: DashboardData }) {
               <TideEventsList tides={data.tidesToday} nextTide={nextTide} nested />
             }
           />
-          <View style={styles.summaryPair}>
-            <SummaryRow
-              icon={Thermometer}
-              tint={COLORS.sea}
-              label="Agua"
-              style={styles.summaryPairItem}
-              value={
-                marine?.sea_surface_temperature != null
-                  ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
-                  : '—'
-              }
-            />
-            <SummaryRow
-              icon={Moon}
-              tint={COLORS.moon}
-              label="Luna"
-              style={styles.summaryPairItem}
-              value={`${moon.label} · ${moon.illumination}%`}
-            />
-          </View>
           <View style={styles.airGroup}>
             <Text style={styles.airGroupTitle}>Aire</Text>
             <View style={styles.airRow}>
@@ -776,6 +786,12 @@ function Summary({ data }: { data: DashboardData }) {
               />
             </View>
           </View>
+          <SummaryRow
+            icon={Moon}
+            tint={COLORS.moon}
+            label="Luna"
+            value={`${moon.label} · ${moon.illumination}%`}
+          />
         </View>
       </Card>
     </View>
@@ -955,6 +971,7 @@ function ForecastDayCard({
 function SummaryRow({
   icon: Icon,
   leading,
+  trailing,
   tint,
   label,
   value,
@@ -968,6 +985,7 @@ function SummaryRow({
 }: {
   icon: LucideIcon;
   leading?: ReactNode;
+  trailing?: ReactNode;
   tint: string;
   label: string;
   value: ReactNode;
@@ -997,6 +1015,7 @@ function SummaryRow({
           </Text>
         ))}
       </View>
+      {trailing}
       {expandable ? (
         <ChevronDown
           size={18}
@@ -1963,15 +1982,6 @@ function createStyles(COLORS: ThemeColors) {
   summaryList: {
     gap: 10,
   },
-  summaryPair: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 10,
-  },
-  summaryPairItem: {
-    flex: 1,
-    minWidth: 0,
-  },
   airGroup: {
     backgroundColor: COLORS.chip,
     borderRadius: 14,
@@ -2035,6 +2045,17 @@ function createStyles(COLORS: ThemeColors) {
     gap: 12,
   },
   summaryRowValue: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  summaryRowTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 4,
+  },
+  summaryRowTrailingValue: {
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '700',
