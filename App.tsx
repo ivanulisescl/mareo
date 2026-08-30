@@ -122,19 +122,24 @@ function todayMonthDay(): string {
   return `${month}-${day}`;
 }
 
-function pickFromList(list: string[]): string {
+type GreetingPhrase = {
+  texto: string;
+  autor?: string;
+};
+
+function pickFromList(list: GreetingPhrase[]): GreetingPhrase {
   if (list.length === 0) {
-    return 'Hola.';
+    return { texto: 'Hola.' };
   }
   return list[Math.floor(Math.random() * list.length)];
 }
 
-function pickGreeting(): string {
-  const dated = (greetingPhrasesByDate as Record<string, string[]>)[todayMonthDay()];
+function pickGreeting(): GreetingPhrase {
+  const dated = (greetingPhrasesByDate as Record<string, GreetingPhrase[]>)[todayMonthDay()];
   if (dated && dated.length > 0) {
     return pickFromList(dated);
   }
-  return pickFromList(greetingPhrases);
+  return pickFromList(greetingPhrases as GreetingPhrase[]);
 }
 
 function formatMetric(value: number | null | undefined, digits = 1): string {
@@ -391,7 +396,10 @@ function AppScreen() {
                 <View style={styles.greetingInner} pointerEvents="none">
                   <Image source={headerLogo} style={styles.greetingLogo} />
                   <Text style={styles.greetingTitle}>CliMarEo</Text>
-                  <Text style={styles.greetingPhrase}>{greeting}</Text>
+                  <Text style={styles.greetingPhrase}>{greeting.texto}</Text>
+                  {greeting.autor ? (
+                    <Text style={styles.greetingAuthor}>{greeting.autor}</Text>
+                  ) : null}
                   <Text style={styles.greetingHint}>Toca para continuar</Text>
                 </View>
               </Pressable>
@@ -1705,6 +1713,14 @@ function createStyles(COLORS: ThemeColors) {
     lineHeight: 28,
     textAlign: 'center',
     fontWeight: '600',
+  },
+  greetingAuthor: {
+    color: COLORS.muted,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: -8,
   },
   greetingHint: {
     color: COLORS.muted,
