@@ -96,6 +96,7 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'relative_humidity_2m',
       'pressure_msl',
       'uv_index',
+      'is_day',
     ].join(','),
     daily: [
       'weather_code',
@@ -117,6 +118,7 @@ export async function fetchWeather(coords: Coordinates): Promise<WeatherApiRespo
       'precipitation_probability',
       'relative_humidity_2m',
       'pressure_msl',
+      'is_day',
     ].join(','),
     forecast_days: String(FORECAST_DAYS),
     timezone: 'auto',

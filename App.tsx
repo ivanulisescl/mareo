@@ -7,14 +7,8 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  Cloud,
-  CloudDrizzle,
-  CloudFog,
-  CloudLightning,
   CloudRain,
-  CloudSnow,
   Clock,
-  CloudSun,
   Droplet,
   Droplets,
   Gauge,
@@ -52,7 +46,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import greetingPhrases from './frases.json';
 import greetingPhrasesByDate from './frases-fechas.json';
 import { useWeatherData } from './hooks/useWeatherData';
-import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent, WeatherIconKey } from './types/weather';
+import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent } from './types/weather';
 import {
   degreesToCompass,
   formatElapsedSince,
@@ -74,20 +68,31 @@ import {
   getTodayHourlyWeather,
   getTodayHourlyWind,
   getTodayPrecipitationSum,
+  getWeatherEmoji,
   getWeatherInfo,
+  isCurrentlyDay,
 } from './types/weather';
 import { ThemeProvider, useTheme, type ThemeColors } from './theme';
 
-const WEATHER_ICONS: Record<WeatherIconKey, LucideIcon> = {
-  sun: Sun,
-  cloudSun: CloudSun,
-  cloud: Cloud,
-  fog: CloudFog,
-  drizzle: CloudDrizzle,
-  rain: CloudRain,
-  snow: CloudSnow,
-  storm: CloudLightning,
-};
+/**
+ * Emoji del sistema para el estado del cielo: se leen mejor a tamaño pequeño
+ * que un icono de línea monocromo y distinguen día de noche.
+ */
+function WeatherEmoji({
+  code,
+  isDay = true,
+  size,
+}: {
+  code: number;
+  isDay?: boolean;
+  size: number;
+}) {
+  return (
+    <Text style={{ fontSize: size, lineHeight: Math.round(size * 1.3), textAlign: 'center' }}>
+      {getWeatherEmoji(code, isDay)}
+    </Text>
+  );
+}
 
 type AppTab = 'resumen' | 'completa' | 'prediccion';
 type HourlyLayout = 'compact' | 'grouped';
@@ -469,7 +474,6 @@ function Header({
       <View style={styles.titleRow}>
         <Image source={headerLogo} style={styles.headerLogo} accessibilityLabel="Logo de CliMarEo" />
         <View style={styles.titleBlock}>
-          <Text style={styles.kicker}>Climatología y estado de la mar</Text>
           <Text style={styles.title}>CliMarEo</Text>
         </View>
         <HeaderActions />
@@ -537,7 +541,7 @@ function Summary({ data }: { data: DashboardData }) {
     [data.marine, data.weather.current.time],
   );
   const weather = getWeatherInfo(data.weather.current.weather_code);
-  const WeatherIcon = WEATHER_ICONS[weather.icon];
+  const weatherIsDay = isCurrentlyDay(data.weather);
   const current = data.weather.current;
   const marine = data.marine?.current;
   const nextTide = data.nextTide;
@@ -583,7 +587,11 @@ function Summary({ data }: { data: DashboardData }) {
       <Card>
         <View style={styles.summaryList}>
           <SummaryRow
-            icon={WeatherIcon}
+            leading={
+              <View style={styles.skyBadge}>
+                <WeatherEmoji code={current.weather_code} isDay={weatherIsDay} size={22} />
+              </View>
+            }
             tint={COLORS.temp}
             label="Tiempo"
             value={`${Math.round(current.temperature_2m)}° · ${weather.label}`}
@@ -607,19 +615,18 @@ function Summary({ data }: { data: DashboardData }) {
                     style={styles.hourlyScroll}
                     contentContainerStyle={styles.hourlyScroller}
                   >
-                    {hourlyWeather.map((hour) => {
-                      const hourWeather = getWeatherInfo(hour.weatherCode);
-                      const HourIcon = WEATHER_ICONS[hourWeather.icon];
-                      return (
-                        <View key={hour.time} style={styles.hourlyChip}>
-                          <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
-                          <View style={styles.hourlyIcon}>
-                            <HourIcon size={16} color={COLORS.temp} />
-                          </View>
-                          <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}</Text>
+                    {hourlyWeather.map((hour) => (
+                      <View key={hour.time} style={styles.hourlyChip}>
+                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                        <View
+                          style={styles.hourlyIcon}
+                          accessibilityLabel={getWeatherInfo(hour.weatherCode).label}
+                        >
+                          <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
                         </View>
-                      );
-                    })}
+                        <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}</Text>
+                      </View>
+                    ))}
                   </ScrollView>
                 </View>
               )
@@ -912,7 +919,6 @@ function ForecastDayCard({
   onToggle: () => void;
 }) {
   const weatherInfo = getWeatherInfo(day.weatherCode);
-  const WeatherIcon = WEATHER_ICONS[weatherInfo.icon];
   const { COLORS, styles, layout } = useAppChrome();
   const rainLabel = formatRainAmount(day.precipitationSum);
   const rainText = rainLabel === '-' ? '-' : `${rainLabel} mm`;
@@ -938,8 +944,8 @@ function ForecastDayCard({
         accessibilityRole="button"
         accessibilityLabel={`${formatForecastDayLabel(day.date, todayIso)}. ${weatherInfo.label}. Lluvia ${rainText}. Viento ${windText}. Mar ${seaText}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
       >
-        <View style={[styles.iconBadge, { backgroundColor: `${COLORS.temp}22` }]}>
-          <WeatherIcon size={18} color={COLORS.temp} />
+        <View style={styles.skyBadge}>
+          <WeatherEmoji code={day.weatherCode} size={22} />
         </View>
         <View style={styles.forecastHeaderText}>
           <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
@@ -991,7 +997,8 @@ function SummaryRow({
   accessibilityValue,
   style,
 }: {
-  icon: LucideIcon;
+  /** Opcional: si se pasa `leading`, ese nodo sustituye a la insignia del icono. */
+  icon?: LucideIcon;
   leading?: ReactNode;
   trailing?: ReactNode;
   tint: string;
@@ -1011,7 +1018,7 @@ function SummaryRow({
     <>
       {leading ?? (
         <View style={[styles.iconBadge, { backgroundColor: `${tint}22` }]}>
-          <Icon size={16} color={tint} />
+          {Icon ? <Icon size={16} color={tint} /> : null}
         </View>
       )}
       <View style={styles.tideInfo}>
@@ -1384,11 +1391,10 @@ const HourlyBoardHour = memo(function HourlyBoardHour({
 }) {
   const { COLORS, styles } = useAppChrome();
   const hourWeather = getWeatherInfo(hour.weatherCode);
-  const HourIcon = WEATHER_ICONS[hourWeather.icon];
 
   const weatherIcon = (
-    <View style={styles.hourlyIcon}>
-      <HourIcon size={16} color={COLORS.temp} />
+    <View style={styles.hourlyIcon} accessibilityLabel={hourWeather.label}>
+      <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
     </View>
   );
   const temperature = (
@@ -1549,7 +1555,7 @@ function TideEventsList({
               <Text style={styles.tideKind}>{isHigh ? 'Pleamar' : 'Bajamar'}</Text>
               <Text style={styles.tideMeta}>
                 {formatTideClock(tide.time)}
-                {isNext ? ` · próxima${tideSize ? ` (${tideSize})` : ''}` : ''}
+                {isNext && tideSize ? ` · ${tideSize}` : ''}
               </Text>
             </View>
             <Text style={styles.tideHeight}>{formatMetric(tide.height, 2)} m</Text>
@@ -1743,18 +1749,10 @@ function createStyles(COLORS: ThemeColors) {
   titleBlock: {
     flex: 1,
   },
-  kicker: {
-    color: COLORS.accent,
-    letterSpacing: 0.4,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
   title: {
     color: COLORS.text,
     fontSize: 32,
     fontWeight: '800',
-    marginTop: 2,
   },
   locationRow: {
     flexDirection: 'row',
@@ -1831,6 +1829,14 @@ function createStyles(COLORS: ThemeColors) {
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  skyBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.skyBadge,
   },
   cardTitle: {
     color: COLORS.text,

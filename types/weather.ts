@@ -7,10 +7,12 @@ export type LocationChoice = 'gijon' | 'colunga' | 'gps';
 
 export type WeatherIconKey =
   | 'sun'
+  | 'mostlyClear'
   | 'cloudSun'
   | 'cloud'
   | 'fog'
   | 'drizzle'
+  | 'showers'
   | 'rain'
   | 'snow'
   | 'storm';
@@ -28,6 +30,7 @@ export type WeatherCurrent = {
   relative_humidity_2m: number;
   pressure_msl: number;
   uv_index: number;
+  is_day?: number;
 };
 
 export type WeatherApiResponse = {
@@ -63,6 +66,7 @@ export type WeatherHourly = {
   precipitation_probability: number[];
   relative_humidity_2m: number[];
   pressure_msl: number[];
+  is_day?: number[];
 };
 
 export type HourlyWind = {
@@ -76,6 +80,7 @@ export type HourlyWeather = {
   time: string;
   temperature: number;
   weatherCode: number;
+  isDay: boolean;
 };
 
 export type HourlyWaves = {
@@ -93,6 +98,7 @@ export type HourlyRain = {
 export type HourlyDetail = {
   time: string;
   weatherCode: number;
+  isDay: boolean;
   temperature: number;
   rain: number;
   rainProbability: number;
@@ -202,7 +208,7 @@ export type WeatherInfo = {
 
 const WMO_WEATHER: Record<number, WeatherInfo> = {
   0: { label: 'Despejado', icon: 'sun' },
-  1: { label: 'Mayormente despejado', icon: 'cloudSun' },
+  1: { label: 'Mayormente despejado', icon: 'mostlyClear' },
   2: { label: 'Parcialmente nublado', icon: 'cloudSun' },
   3: { label: 'Nublado', icon: 'cloud' },
   45: { label: 'Niebla', icon: 'fog' },
@@ -221,9 +227,9 @@ const WMO_WEATHER: Record<number, WeatherInfo> = {
   73: { label: 'Nieve', icon: 'snow' },
   75: { label: 'Nieve intensa', icon: 'snow' },
   77: { label: 'Granizo menudo', icon: 'snow' },
-  80: { label: 'Chubascos ligeros', icon: 'rain' },
-  81: { label: 'Chubascos', icon: 'rain' },
-  82: { label: 'Chubascos fuertes', icon: 'rain' },
+  80: { label: 'Chubascos ligeros', icon: 'showers' },
+  81: { label: 'Chubascos', icon: 'showers' },
+  82: { label: 'Chubascos fuertes', icon: 'showers' },
   85: { label: 'Chubascos de nieve', icon: 'snow' },
   86: { label: 'Chubascos de nieve fuertes', icon: 'snow' },
   95: { label: 'Tormenta', icon: 'storm' },
@@ -233,6 +239,40 @@ const WMO_WEATHER: Record<number, WeatherInfo> = {
 
 export function getWeatherInfo(weatherCode: number): WeatherInfo {
   return WMO_WEATHER[weatherCode] ?? { label: `Código ${weatherCode}`, icon: 'cloud' };
+}
+
+const WEATHER_EMOJI: Record<WeatherIconKey, { day: string; night: string }> = {
+  sun: { day: '☀️', night: '🌙' },
+  mostlyClear: { day: '🌤️', night: '🌙' },
+  cloudSun: { day: '⛅', night: '☁️' },
+  cloud: { day: '☁️', night: '☁️' },
+  fog: { day: '🌫️', night: '🌫️' },
+  drizzle: { day: '🌦️', night: '🌧️' },
+  showers: { day: '🌦️', night: '🌧️' },
+  rain: { day: '🌧️', night: '🌧️' },
+  snow: { day: '🌨️', night: '🌨️' },
+  storm: { day: '⛈️', night: '⛈️' },
+};
+
+export function getWeatherEmoji(weatherCode: number, isDay = true): string {
+  const variants = WEATHER_EMOJI[getWeatherInfo(weatherCode).icon];
+  return isDay ? variants.day : variants.night;
+}
+
+/** Respaldo cuando la API no envía `is_day`, por ejemplo con datos cacheados. */
+function isDaylightByClock(iso: string): boolean {
+  const hour = Number(iso.slice(11, 13));
+  return hour >= 8 && hour < 21;
+}
+
+function hourlyIsDay(hourly: WeatherHourly, index: number, time: string): boolean {
+  const flag = hourly.is_day?.[index];
+  return flag == null ? isDaylightByClock(time) : flag === 1;
+}
+
+export function isCurrentlyDay(weather: WeatherApiResponse): boolean {
+  const flag = weather.current.is_day;
+  return flag == null ? isDaylightByClock(weather.current.time) : flag === 1;
 }
 
 const COMPASS_POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'] as const;
@@ -380,7 +420,7 @@ export function getTodayHourlyWeather(weather: WeatherApiResponse): HourlyWeathe
     if (temperature == null || weatherCode == null) {
       continue;
     }
-    hours.push({ time, temperature, weatherCode });
+    hours.push({ time, temperature, weatherCode, isDay: hourlyIsDay(hourly, index, time) });
   }
 
   return hours;
@@ -540,6 +580,7 @@ function collectHourlyDetail(
     hours.push({
       time,
       weatherCode,
+      isDay: hourlyIsDay(hourly, index, time),
       temperature,
       rain,
       rainProbability,

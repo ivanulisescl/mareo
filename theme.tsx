@@ -23,6 +23,8 @@ export type ThemeColors = {
   card: string;
   border: string;
   chip: string;
+  /** Fondo de la insignia del estado del cielo: da contraste a los emojis claros. */
+  skyBadge: string;
   gradient: [string, string, string];
   statusBar: 'light' | 'dark';
   overlay: string;
@@ -47,6 +49,7 @@ export const DARK_COLORS: ThemeColors = {
   card: 'rgba(14, 36, 58, 0.82)',
   border: 'rgba(56, 189, 248, 0.18)',
   chip: 'rgba(56, 189, 248, 0.12)',
+  skyBadge: 'rgba(56, 189, 248, 0.16)',
   gradient: ['#04101C', '#0B1F33', '#06303A'],
   statusBar: 'light',
   overlay: 'rgba(4, 16, 28, 0.72)',
@@ -71,6 +74,7 @@ export const LIGHT_COLORS: ThemeColors = {
   card: 'rgba(255, 255, 255, 0.86)',
   border: 'rgba(3, 105, 161, 0.18)',
   chip: 'rgba(3, 105, 161, 0.08)',
+  skyBadge: 'rgba(3, 105, 161, 0.22)',
   gradient: ['#E8F4FC', '#D7EEF6', '#C5E8E4'],
   statusBar: 'dark',
   overlay: 'rgba(11, 37, 56, 0.45)',
