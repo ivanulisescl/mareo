@@ -199,6 +199,7 @@ export type DashboardData = {
   placeLabel: string;
   locationChoice: LocationChoice;
   usingGps: boolean;
+  tidesLoading: boolean;
 };
 
 export type WeatherInfo = {

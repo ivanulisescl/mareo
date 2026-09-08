@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import {
   COLUNGA_COORDS,
@@ -16,6 +16,7 @@ import {
   type Coordinates,
   type DashboardData,
   type LocationChoice,
+  type TideEvent,
 } from '../types/weather';
 
 function looksLikeCoordinates(value: string): boolean {
@@ -77,14 +78,46 @@ async function readGpsCoordinates(): Promise<Coordinates> {
   };
 }
 
+function tidesByDayFromForecast(days: DashboardData['forecastDays']): Record<string, TideEvent[]> {
+  return Object.fromEntries(days.map((day) => [day.date, day.tides]));
+}
+
+function applyTides(
+  current: DashboardData,
+  tidesByDay: Record<string, TideEvent[]>,
+  stationName: string | null,
+): DashboardData {
+  const dayIso = current.weather.current.time.slice(0, 10);
+  const tidesToday = tidesByDay[dayIso] ?? [];
+  const tideTimeline = Object.values(tidesByDay)
+    .flat()
+    .sort((left, right) => left.time.localeCompare(right.time));
+  const { previous: previousTide, next: nextTide } = getSurroundingTides(
+    tideTimeline,
+    current.weather.current.time,
+  );
+
+  return {
+    ...current,
+    tidesToday,
+    previousTide,
+    nextTide,
+    tideStationName: stationName,
+    forecastDays: buildDayForecasts(current.weather, current.marine, tidesByDay),
+    tidesLoading: false,
+  };
+}
+
 export function useWeatherData() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationChoice, setLocationChoice] = useState<LocationChoice>('colunga');
+  const loadGeneration = useRef(0);
 
   const load = useCallback(async (isRefresh: boolean, choice: LocationChoice) => {
+    const generation = ++loadGeneration.current;
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -111,32 +144,51 @@ export function useWeatherData() {
       }
 
       const { weather, marine } = await fetchWeatherAndMarine(coords);
-      const dayIso = weather.current.time.slice(0, 10);
-      const { tidesByDay, stationName } = await fetchOfficialTides(coords, dayIso, FORECAST_DAYS);
-      const tidesToday = tidesByDay[dayIso] ?? [];
-      const tideTimeline = Object.values(tidesByDay)
-        .flat()
-        .sort((left, right) => left.time.localeCompare(right.time));
-      const { previous: previousTide, next: nextTide } = getSurroundingTides(
-        tideTimeline,
-        weather.current.time,
-      );
+      if (generation !== loadGeneration.current) {
+        return;
+      }
 
+      const dayIso = weather.current.time.slice(0, 10);
       setLocationChoice(choice);
-      setData({
-        weather,
-        marine,
-        tidesToday,
-        previousTide,
-        nextTide,
-        tideStationName: stationName,
-        forecastDays: buildDayForecasts(weather, marine, tidesByDay),
-        coordinates: coords,
-        placeLabel,
-        locationChoice: choice,
-        usingGps,
+      setData((prev) => {
+        const keepTides = isRefresh && prev != null;
+        return {
+          weather,
+          marine,
+          tidesToday: keepTides ? prev.tidesToday : [],
+          previousTide: keepTides ? prev.previousTide : null,
+          nextTide: keepTides ? prev.nextTide : null,
+          tideStationName: keepTides ? prev.tideStationName : null,
+          forecastDays: buildDayForecasts(
+            weather,
+            marine,
+            keepTides ? tidesByDayFromForecast(prev.forecastDays) : {},
+          ),
+          coordinates: coords,
+          placeLabel,
+          locationChoice: choice,
+          usingGps,
+          tidesLoading: true,
+        };
       });
+
+      void fetchOfficialTides(coords, dayIso, FORECAST_DAYS)
+        .then(({ tidesByDay, stationName }) => {
+          if (generation !== loadGeneration.current) {
+            return;
+          }
+          setData((prev) => (prev == null ? prev : applyTides(prev, tidesByDay, stationName)));
+        })
+        .catch(() => {
+          if (generation !== loadGeneration.current) {
+            return;
+          }
+          setData((prev) => (prev == null ? prev : { ...prev, tidesLoading: false }));
+        });
     } catch (err) {
+      if (generation !== loadGeneration.current) {
+        return;
+      }
       const message =
         err instanceof Error ? err.message : 'No se pudieron cargar las condiciones actuales';
       setError(
@@ -145,8 +197,10 @@ export function useWeatherData() {
           : message,
       );
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (generation === loadGeneration.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 

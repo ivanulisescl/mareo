@@ -560,9 +560,11 @@ function Summary({ data }: { data: DashboardData }) {
       ? null
       : formatElapsedSince(previousTide.time, data.weather.current.time);
   const tideHeadline =
-    tideTrend && tideElapsed
-      ? `${tideTrend} desde hace ${tideElapsed}`
-      : tideTrend ?? 'Sin datos';
+    data.tidesLoading && previousTide == null
+      ? 'Obteniendo mareas...'
+      : tideTrend && tideElapsed
+        ? `${tideTrend} desde hace ${tideElapsed}`
+        : tideTrend ?? 'Sin datos';
   const moon = getMoonPhase(data.weather.current.time);
   const waterTemp =
     marine?.sea_surface_temperature != null
@@ -766,7 +768,12 @@ function Summary({ data }: { data: DashboardData }) {
             expanded={tidesOpen}
             onToggle={() => setTidesOpen((open) => !open)}
             extra={
-              <TideEventsList tides={data.tidesToday} nextTide={nextTide} nested />
+              <TideEventsList
+                tides={data.tidesToday}
+                nextTide={nextTide}
+                nested
+                loading={data.tidesLoading}
+              />
             }
           />
           <View style={styles.airGroup}>
@@ -1517,16 +1524,22 @@ function TideEventsList({
   tides,
   nextTide,
   nested,
+  loading,
 }: {
   tides: TideEvent[];
   nextTide?: TideEvent | null;
   nested?: boolean;
+  loading?: boolean;
 }) {
   const { COLORS, styles } = useAppChrome();
   const tideSize = getTideSize(tides);
 
   if (tides.length === 0) {
-    return <Text style={styles.fallbackHint}>No hay datos de marea para este día.</Text>;
+    return (
+      <Text style={styles.fallbackHint}>
+        {loading ? 'Obteniendo mareas...' : 'No hay datos de marea para este día.'}
+      </Text>
+    );
   }
 
   return (
