@@ -7,7 +7,6 @@ import {
   CalendarDays,
   Check,
   ChevronDown,
-  CloudRain,
   Clock,
   Droplet,
   Droplets,
@@ -74,6 +73,14 @@ import {
 } from './types/weather';
 import { ThemeProvider, useTheme, type ThemeColors } from './theme';
 
+function EmojiMark({ emoji, size }: { emoji: string; size: number }) {
+  return (
+    <Text style={{ fontSize: size, lineHeight: Math.round(size * 1.3), textAlign: 'center' }}>
+      {emoji}
+    </Text>
+  );
+}
+
 /**
  * Emoji del sistema para el estado del cielo: se leen mejor a tamaño pequeño
  * que un icono de línea monocromo y distinguen día de noche.
@@ -87,11 +94,7 @@ function WeatherEmoji({
   isDay?: boolean;
   size: number;
 }) {
-  return (
-    <Text style={{ fontSize: size, lineHeight: Math.round(size * 1.3), textAlign: 'center' }}>
-      {getWeatherEmoji(code, isDay)}
-    </Text>
-  );
+  return <EmojiMark emoji={getWeatherEmoji(code, isDay)} size={size} />;
 }
 
 type AppTab = 'resumen' | 'completa' | 'prediccion';
@@ -565,17 +568,11 @@ function Summary({ data }: { data: DashboardData }) {
     marine?.sea_surface_temperature != null
       ? `${formatMetric(marine.sea_surface_temperature, 1)}°`
       : '—';
-  const currentRain = current.precipitation ?? 0;
-  const rainProbability = hourlyRain[0]?.probability ?? null;
   const rainToday = getTodayPrecipitationSum(data.weather);
   const rainHeadline =
-    currentRain >= 0.1
-      ? rainProbability != null
-        ? `${formatMetric(currentRain)} mm · ${Math.round(rainProbability)}%`
-        : `${formatMetric(currentRain)} mm`
-      : rainToday != null && rainToday >= 0.1
-        ? `No llueve · ${formatMetric(rainToday)} mm hoy`
-        : 'Sin lluvia prevista hoy';
+    rainToday != null && rainToday >= 0.1
+      ? `${formatMetric(rainToday)} mm hoy`
+      : 'Sin lluvia prevista hoy';
   const uvNow = current.uv_index ?? null;
   const uvMaxToday = getTodayUvMax(data.weather);
   const uvHeadline =
@@ -606,7 +603,7 @@ function Summary({ data }: { data: DashboardData }) {
                   <View style={styles.hourlyLabels}>
                     <View style={styles.hourlyLabelTime} />
                     <Text style={styles.hourlyLabel}>Tiempo</Text>
-                    <Text style={styles.hourlyLabel}>Temp{'\n'}°C</Text>
+                    <Text style={styles.hourlyLabel}>Temp</Text>
                   </View>
                   <ScrollView
                     horizontal
@@ -624,7 +621,7 @@ function Summary({ data }: { data: DashboardData }) {
                         >
                           <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
                         </View>
-                        <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}</Text>
+                        <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}°</Text>
                       </View>
                     ))}
                   </ScrollView>
@@ -633,7 +630,11 @@ function Summary({ data }: { data: DashboardData }) {
             }
           />
           <SummaryRow
-            icon={CloudRain}
+            leading={
+              <View style={styles.skyBadge}>
+                <EmojiMark emoji="🌧️" size={22} />
+              </View>
+            }
             tint={COLORS.accent}
             label="Lluvia"
             value={rainHeadline}
@@ -647,8 +648,8 @@ function Summary({ data }: { data: DashboardData }) {
                 <View style={styles.hourlyTable}>
                   <View style={styles.hourlyLabels}>
                     <View style={styles.hourlyLabelTime} />
-                    <Text style={styles.hourlyLabel}>Lluvia{'\n'}mm</Text>
-                    <Text style={styles.hourlyLabel}>Prob.{'\n'}%</Text>
+                    <Text style={styles.hourlyLabel}>mm</Text>
+                    <Text style={styles.hourlyLabel}>Prob.</Text>
                   </View>
                   <ScrollView
                     horizontal
@@ -661,7 +662,7 @@ function Summary({ data }: { data: DashboardData }) {
                       <View key={hour.time} style={styles.hourlyChip}>
                         <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
                         <Text style={styles.hourlyValue}>{formatRainAmount(hour.amount)}</Text>
-                        <Text style={styles.hourlyGusts}>{Math.round(hour.probability)}</Text>
+                        <Text style={styles.hourlyGusts}>{Math.round(hour.probability)}%</Text>
                       </View>
                     ))}
                   </ScrollView>
@@ -896,7 +897,9 @@ function ForecastMetric({
   return (
     <View style={styles.forecastMetric}>
       <Icon size={14} color={tint} />
-      <Text style={styles.forecastMetricText}>{value}</Text>
+      <Text style={styles.forecastMetricText} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -944,27 +947,29 @@ function ForecastDayCard({
         accessibilityRole="button"
         accessibilityLabel={`${formatForecastDayLabel(day.date, todayIso)}. ${weatherInfo.label}. Lluvia ${rainText}. Viento ${windText}. Mar ${seaText}. ${expanded ? 'Ocultar detalle' : 'Ver detalle'}`}
       >
-        <View style={styles.skyBadge}>
-          <WeatherEmoji code={day.weatherCode} size={22} />
-        </View>
-        <View style={styles.forecastHeaderText}>
-          <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
-          <Text style={styles.forecastSummary}>{weatherInfo.label}</Text>
-          <View style={styles.forecastMetrics}>
-            <ForecastMetric icon={Droplet} tint={COLORS.accent} value={rainText} />
-            <ForecastMetric icon={Wind} tint={COLORS.wind} value={windText} />
-            <ForecastMetric icon={Waves} tint={COLORS.sea} value={seaText} />
+        <View style={styles.forecastHeaderTop}>
+          <View style={styles.skyBadge}>
+            <WeatherEmoji code={day.weatherCode} size={22} />
           </View>
+          <View style={styles.forecastHeaderText}>
+            <Text style={styles.forecastDay}>{formatForecastDayLabel(day.date, todayIso)}</Text>
+            <Text style={styles.forecastSummary}>{weatherInfo.label}</Text>
+          </View>
+          <Text style={styles.forecastTemps}>
+            {Math.round(day.temperatureMax)}°
+            <Text style={styles.forecastTempMin}> / {Math.round(day.temperatureMin)}°</Text>
+          </Text>
+          <ChevronDown
+            size={18}
+            color={COLORS.accent}
+            style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+          />
         </View>
-        <Text style={styles.forecastTemps}>
-          {Math.round(day.temperatureMax)}°
-          <Text style={styles.forecastTempMin}> / {Math.round(day.temperatureMin)}°</Text>
-        </Text>
-        <ChevronDown
-          size={18}
-          color={COLORS.accent}
-          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
-        />
+        <View style={styles.forecastMetrics}>
+          <ForecastMetric icon={Droplet} tint={COLORS.accent} value={rainText} />
+          <ForecastMetric icon={Wind} tint={COLORS.wind} value={windText} />
+          <ForecastMetric icon={Waves} tint={COLORS.sea} value={seaText} />
+        </View>
       </Pressable>
 
       {expanded ? (
@@ -2321,8 +2326,11 @@ function createStyles(COLORS: ThemeColors) {
     fontWeight: '700',
   },
   forecastHeader: {
+    gap: 8,
+  },
+  forecastHeaderTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
   },
   forecastHeaderText: {
@@ -2339,17 +2347,22 @@ function createStyles(COLORS: ThemeColors) {
     marginTop: 2,
   },
   forecastMetrics: {
-    marginTop: 8,
-    gap: 4,
-  },
-  forecastMetric: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    width: '100%',
+  },
+  forecastMetric: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minWidth: 0,
   },
   forecastMetricText: {
     color: COLORS.muted,
     fontSize: 13,
+    flexShrink: 1,
   },
   forecastTemps: {
     color: COLORS.text,
