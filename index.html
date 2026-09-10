@@ -44,6 +44,13 @@
     </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
-  <script src="/mareo/_expo/static/js/web/index-6089fe5ad1c49f8b4efb19ea835ed290.js" defer></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(function () {});
+        });
+      }
+    </script>
+  <script src="/mareo/_expo/static/js/web/index-5de1cccad48f0a3a203299554e1aa817.js" defer></script>
 </body>
 </html>

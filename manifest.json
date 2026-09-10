@@ -9,21 +9,22 @@
   "orientation": "portrait",
   "background_color": "#7BCDE2",
   "theme_color": "#04101C",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "logo192.png",
+      "src": "/mareo/logo192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "logo512.png",
+      "src": "/mareo/logo512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "logo512-maskable.png",
+      "src": "/mareo/logo512-maskable.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
