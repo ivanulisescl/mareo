@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 import {
   COLUNGA_COORDS,
@@ -18,6 +19,14 @@ import {
   type LocationChoice,
   type TideEvent,
 } from '../types/weather';
+import { useMadridNow } from './useMadridNow';
+
+const LOCATION_STORAGE_KEY = 'climareo-location';
+const DEFAULT_LOCATION: LocationChoice = 'colunga';
+
+function isLocationChoice(value: string | null): value is LocationChoice {
+  return value === 'gijon' || value === 'colunga' || value === 'gps';
+}
 
 function looksLikeCoordinates(value: string): boolean {
   return /^-?\d+(?:[.,]\d+)?\s*,\s*-?\d+(?:[.,]\d+)?$/.test(value.trim());
@@ -87,33 +96,44 @@ function applyTides(
   tidesByDay: Record<string, TideEvent[]>,
   stationName: string | null,
 ): DashboardData {
-  const dayIso = current.weather.current.time.slice(0, 10);
-  const tidesToday = tidesByDay[dayIso] ?? [];
-  const tideTimeline = Object.values(tidesByDay)
-    .flat()
-    .sort((left, right) => left.time.localeCompare(right.time));
-  const { previous: previousTide, next: nextTide } = getSurroundingTides(
-    tideTimeline,
-    current.weather.current.time,
-  );
-
   return {
     ...current,
-    tidesToday,
-    previousTide,
-    nextTide,
     tideStationName: stationName,
     forecastDays: buildDayForecasts(current.weather, current.marine, tidesByDay),
     tidesLoading: false,
   };
 }
 
+function withLiveTides(current: DashboardData, nowIso: string): DashboardData {
+  const tidesByDay = tidesByDayFromForecast(current.forecastDays);
+  const tideTimeline = Object.values(tidesByDay)
+    .flat()
+    .sort((left, right) => left.time.localeCompare(right.time));
+  const { previous: previousTide, next: nextTide } = getSurroundingTides(
+    tideTimeline,
+    nowIso,
+  );
+  const dayIso = nowIso.slice(0, 10);
+
+  return {
+    ...current,
+    tidesToday: tidesByDay[dayIso] ?? [],
+    previousTide,
+    nextTide,
+  };
+}
+
 export function useWeatherData() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [snapshot, setSnapshot] = useState<DashboardData | null>(null);
+  const nowIso = useMadridNow();
+  const data = useMemo(
+    () => (snapshot == null ? null : withLiveTides(snapshot, nowIso)),
+    [snapshot, nowIso],
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [locationChoice, setLocationChoice] = useState<LocationChoice>('colunga');
+  const [locationChoice, setLocationChoice] = useState<LocationChoice>(DEFAULT_LOCATION);
   const loadGeneration = useRef(0);
 
   const load = useCallback(async (isRefresh: boolean, choice: LocationChoice) => {
@@ -150,7 +170,8 @@ export function useWeatherData() {
 
       const dayIso = weather.current.time.slice(0, 10);
       setLocationChoice(choice);
-      setData((prev) => {
+      void AsyncStorage.setItem(LOCATION_STORAGE_KEY, choice).catch(() => {});
+      setSnapshot((prev) => {
         const keepTides = isRefresh && prev != null;
         return {
           weather,
@@ -177,13 +198,13 @@ export function useWeatherData() {
           if (generation !== loadGeneration.current) {
             return;
           }
-          setData((prev) => (prev == null ? prev : applyTides(prev, tidesByDay, stationName)));
+          setSnapshot((prev) => (prev == null ? prev : applyTides(prev, tidesByDay, stationName)));
         })
         .catch(() => {
           if (generation !== loadGeneration.current) {
             return;
           }
-          setData((prev) => (prev == null ? prev : { ...prev, tidesLoading: false }));
+          setSnapshot((prev) => (prev == null ? prev : { ...prev, tidesLoading: false }));
         });
     } catch (err) {
       if (generation !== loadGeneration.current) {
@@ -205,7 +226,28 @@ export function useWeatherData() {
   }, []);
 
   useEffect(() => {
-    void load(false, 'colunga');
+    let cancelled = false;
+
+    void (async () => {
+      let initial: LocationChoice = DEFAULT_LOCATION;
+      try {
+        const stored = await AsyncStorage.getItem(LOCATION_STORAGE_KEY);
+        if (isLocationChoice(stored)) {
+          initial = stored;
+        }
+      } catch {
+        // Si falla el storage, se usa Colunga.
+      }
+
+      if (!cancelled) {
+        setLocationChoice(initial);
+        void load(false, initial);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   const refresh = useCallback(() => {
@@ -219,5 +261,5 @@ export function useWeatherData() {
     [load],
   );
 
-  return { data, loading, refreshing, error, refresh, locationChoice, selectLocation };
+  return { data, nowIso, loading, refreshing, error, refresh, locationChoice, selectLocation };
 }

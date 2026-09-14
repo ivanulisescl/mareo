@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Clock,
+  Download,
   Droplet,
   Droplets,
   Gauge,
@@ -27,6 +28,7 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import {
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -42,8 +44,10 @@ import Svg, { ClipPath, Defs, Path, Rect } from 'react-native-svg';
 
 const headerLogo = require('./assets/logo.png');
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import appJson from './app.json';
 import greetingPhrases from './frases.json';
 import greetingPhrasesByDate from './frases-fechas.json';
+import { usePwaInstall } from './hooks/usePwaInstall';
 import { useWeatherData } from './hooks/useWeatherData';
 import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent } from './types/weather';
 import {
@@ -72,6 +76,8 @@ import {
   isCurrentlyDay,
 } from './types/weather';
 import { ThemeProvider, useTheme, type ThemeColors } from './theme';
+
+const APP_VERSION = appJson.expo.version;
 
 function EmojiMark({ emoji, size }: { emoji: string; size: number }) {
   return (
@@ -331,6 +337,13 @@ function InfoSheet({ visible, onClose }: { visible: boolean; onClose: () => void
             </Text>
             <ScaleTable rows={TIDE_SCALE} />
           </ScrollView>
+          <Text
+            style={styles.infoVersion}
+            accessibilityRole="text"
+            accessibilityLabel={`Versión ${APP_VERSION}`}
+          >
+            CliMarEo {APP_VERSION}
+          </Text>
           <Pressable onPress={onClose} style={styles.infoClose} accessibilityRole="button">
             <Text style={styles.infoCloseLabel}>Cerrar</Text>
           </Pressable>
@@ -371,13 +384,14 @@ export default function App() {
 }
 
 function AppScreen() {
-  const { data, refreshing, error, refresh, locationChoice, selectLocation } =
+  const { data, nowIso, refreshing, error, refresh, locationChoice, selectLocation } =
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
   const [showGreeting, setShowGreeting] = useState(true);
   const greeting = useMemo(() => pickGreeting(), []);
   const { mode, colors, toggleTheme } = useTheme();
   const { layout, selectLayout } = useHourlyLayout();
+  const { canInstall, installed, promptInstall } = usePwaInstall();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const chrome = useMemo(
     () => ({ mode, COLORS: colors, styles, toggleTheme, layout, selectLayout }),
@@ -411,6 +425,23 @@ function AppScreen() {
                   <Text style={styles.greetingHint}>Toca para continuar</Text>
                 </View>
               </Pressable>
+              {canInstall ? (
+                <Pressable
+                  onPress={() => {
+                    void promptInstall();
+                  }}
+                  style={styles.installButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Instalar CliMarEo"
+                >
+                  <Download size={18} color={colors.accent} />
+                  <Text style={styles.installButtonLabel}>Instalar aplicación</Text>
+                </Pressable>
+              ) : Platform.OS === 'web' && !installed ? (
+                <Text style={styles.installHint}>
+                  Para instalar: abre en Chrome (pestaña con barra de direcciones), espera ~30 s y usa ⋮ → Instalar aplicación
+                </Text>
+              ) : null}
               <HeaderActions greeting />
             </View>
           ) : (
@@ -434,7 +465,7 @@ function AppScreen() {
               {error ? <ErrorBanner message={error} onRetry={refresh} /> : null}
               {data ? (
                 tab === 'resumen' ? (
-                  <Summary data={data} />
+                  <Summary data={data} nowIso={nowIso} />
                 ) : tab === 'completa' ? (
                   <Dashboard data={data} />
                 ) : (
@@ -529,16 +560,19 @@ function Header({
   );
 }
 
-function Summary({ data }: { data: DashboardData }) {
+function Summary({ data, nowIso }: { data: DashboardData; nowIso: string }) {
   const { COLORS, styles } = useAppChrome();
   const [windOpen, setWindOpen] = useState(false);
   const [weatherOpen, setWeatherOpen] = useState(false);
-  const [rainOpen, setRainOpen] = useState(false);
   const [seaOpen, setSeaOpen] = useState(false);
   const [tidesOpen, setTidesOpen] = useState(false);
   const hourlyWind = useMemo(() => getTodayHourlyWind(data.weather), [data.weather]);
   const hourlyWeather = useMemo(() => getTodayHourlyWeather(data.weather), [data.weather]);
   const hourlyRain = useMemo(() => getTodayHourlyRain(data.weather), [data.weather]);
+  const hourlyRainByTime = useMemo(
+    () => new Map(hourlyRain.map((hour) => [hour.time, hour])),
+    [hourlyRain],
+  );
   const hourlyWaves = useMemo(
     () => getTodayHourlyWaves(data.marine, data.weather.current.time),
     [data.marine, data.weather.current.time],
@@ -558,7 +592,7 @@ function Summary({ data }: { data: DashboardData }) {
   const tideElapsed =
     previousTide == null
       ? null
-      : formatElapsedSince(previousTide.time, data.weather.current.time);
+      : formatElapsedSince(previousTide.time, nowIso);
   const tideHeadline =
     data.tidesLoading && previousTide == null
       ? 'Obteniendo mareas...'
@@ -575,6 +609,7 @@ function Summary({ data }: { data: DashboardData }) {
     rainToday != null && rainToday >= 0.1
       ? `${formatMetric(rainToday)} mm hoy`
       : 'Sin lluvia prevista hoy';
+  const weatherHeadline = `${Math.round(current.temperature_2m)}° · ${weather.label}`;
   const uvNow = current.uv_index ?? null;
   const uvMaxToday = getTodayUvMax(data.weather);
   const uvHeadline =
@@ -593,7 +628,9 @@ function Summary({ data }: { data: DashboardData }) {
             }
             tint={COLORS.temp}
             label="Tiempo"
-            value={`${Math.round(current.temperature_2m)}° · ${weather.label}`}
+            value={weatherHeadline}
+            details={[rainHeadline]}
+            accessibilityValue={`${weatherHeadline}. ${rainHeadline}`}
             expandable
             expanded={weatherOpen}
             onToggle={() => setWeatherOpen((open) => !open)}
@@ -606,50 +643,6 @@ function Summary({ data }: { data: DashboardData }) {
                     <View style={styles.hourlyLabelTime} />
                     <Text style={styles.hourlyLabel}>Tiempo</Text>
                     <Text style={styles.hourlyLabel}>Temp</Text>
-                  </View>
-                  <ScrollView
-                    horizontal
-                    nestedScrollEnabled
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.hourlyScroll}
-                    contentContainerStyle={styles.hourlyScroller}
-                  >
-                    {hourlyWeather.map((hour) => (
-                      <View key={hour.time} style={styles.hourlyChip}>
-                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
-                        <View
-                          style={styles.hourlyIcon}
-                          accessibilityLabel={getWeatherInfo(hour.weatherCode).label}
-                        >
-                          <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
-                        </View>
-                        <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}°</Text>
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-              )
-            }
-          />
-          <SummaryRow
-            leading={
-              <View style={styles.skyBadge}>
-                <EmojiMark emoji="🌧️" size={22} />
-              </View>
-            }
-            tint={COLORS.accent}
-            label="Lluvia"
-            value={rainHeadline}
-            expandable
-            expanded={rainOpen}
-            onToggle={() => setRainOpen((open) => !open)}
-            extra={
-              hourlyRain.length === 0 ? (
-                <Text style={styles.summaryRowDetail}>Sin previsión horaria para hoy.</Text>
-              ) : (
-                <View style={styles.hourlyTable}>
-                  <View style={styles.hourlyLabels}>
-                    <View style={styles.hourlyLabelTime} />
                     <Text style={styles.hourlyLabel}>mm</Text>
                     <Text style={styles.hourlyLabel}>Prob.</Text>
                   </View>
@@ -660,13 +653,27 @@ function Summary({ data }: { data: DashboardData }) {
                     style={styles.hourlyScroll}
                     contentContainerStyle={styles.hourlyScroller}
                   >
-                    {hourlyRain.map((hour) => (
-                      <View key={hour.time} style={styles.hourlyChip}>
-                        <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
-                        <Text style={styles.hourlyValue}>{formatRainAmount(hour.amount)}</Text>
-                        <Text style={styles.hourlyGusts}>{Math.round(hour.probability)}%</Text>
-                      </View>
-                    ))}
+                    {hourlyWeather.map((hour) => {
+                      const rain = hourlyRainByTime.get(hour.time);
+                      return (
+                        <View key={hour.time} style={styles.hourlyChip}>
+                          <Text style={styles.hourlyTime}>{formatTideClock(hour.time)}</Text>
+                          <View
+                            style={styles.hourlyIcon}
+                            accessibilityLabel={getWeatherInfo(hour.weatherCode).label}
+                          >
+                            <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
+                          </View>
+                          <Text style={styles.hourlyValue}>{Math.round(hour.temperature)}°</Text>
+                          <Text style={styles.hourlyGusts}>
+                            {rain ? formatRainAmount(rain.amount) : '-'}
+                          </Text>
+                          <Text style={styles.hourlyGusts}>
+                            {rain ? `${Math.round(rain.probability)}%` : '-'}
+                          </Text>
+                        </View>
+                      );
+                    })}
                   </ScrollView>
                 </View>
               )
@@ -1751,6 +1758,36 @@ function createStyles(COLORS: ThemeColors) {
     fontSize: 14,
     marginTop: 8,
   },
+  installButton: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: COLORS.chip,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  installButtonLabel: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  installHint: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: 24,
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
   header: {
     paddingTop: 12,
     paddingBottom: 20,
@@ -2495,6 +2532,11 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.accent,
     fontSize: 13,
     fontWeight: '600',
+  },
+  infoVersion: {
+    color: COLORS.muted,
+    fontSize: 12,
+    textAlign: 'center',
   },
   infoClose: {
     alignItems: 'center',

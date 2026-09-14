@@ -1,9 +1,10 @@
-import type {
-  Coordinates,
-  DayForecast,
-  MarineApiResponse,
-  TideEvent,
-  WeatherApiResponse,
+import {
+  formatNaiveIso,
+  type Coordinates,
+  type DayForecast,
+  type MarineApiResponse,
+  type TideEvent,
+  type WeatherApiResponse,
 } from '../types/weather';
 
 const WEATHER_URL = 'https://api.open-meteo.com/v1/forecast';
@@ -370,20 +371,7 @@ function ihmUtcToMadridIso(utcDayIso: string, hora: string): string | null {
     Number(match[2]),
   );
 
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Madrid',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(new Date(utcMillis));
-
-  const valueOf = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? '';
-
-  return `${valueOf('year')}-${valueOf('month')}-${valueOf('day')}T${valueOf('hour')}:${valueOf('minute')}`;
+  return formatNaiveIso(new Date(utcMillis));
 }
 
 async function fetchIhmTideRows(stationId: string, utcDayIso: string): Promise<IhmTideRow[]> {

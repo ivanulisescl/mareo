@@ -2,7 +2,7 @@
   "expo": {
     "name": "CliMarEo",
     "slug": "Mareo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -35,7 +35,11 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "CliMarEo"
+      "name": "CliMarEo",
+      "shortName": "CliMarEo",
+      "display": "standalone",
+      "themeColor": "#04101C",
+      "backgroundColor": "#7BCDE2"
     },
     "experiments": {
       "baseUrl": "/mareo"

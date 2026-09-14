@@ -672,6 +672,30 @@ export function formatHourlyDayLabel(dateIso: string, todayIso: string): string 
   return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${dayNumber}`;
 }
 
+const MADRID_TIME_ZONE = 'Europe/Madrid';
+
+/** Serializa un instante como hora local naive (`YYYY-MM-DDTHH:MM`), igual que las mareas. */
+export function formatNaiveIso(date: Date, timeZone = MADRID_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const valueOf = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  return `${valueOf('year')}-${valueOf('month')}-${valueOf('day')}T${valueOf('hour')}:${valueOf('minute')}`;
+}
+
+export function madridNowIso(): string {
+  return formatNaiveIso(new Date());
+}
+
 /** Interpreta horas locales sin zona (Open-Meteo / Anuario de Mareas). */
 function naiveMinutes(isoTime: string): number | null {
   const match = isoTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
