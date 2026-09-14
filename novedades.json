@@ -1,0 +1,9 @@
+{
+  "1.0.1": [
+    "La siguiente marea usa la hora real, no la del parte a intervalos de 15 minutos.",
+    "La versión de la app aparece en Información."
+  ],
+  "1.0.2": [
+    "A partir de ahora se mostrarán las novedades que se realicen en cada versión"
+  ]
+}

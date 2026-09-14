@@ -49,6 +49,7 @@ import greetingPhrases from './frases.json';
 import greetingPhrasesByDate from './frases-fechas.json';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useWeatherData } from './hooks/useWeatherData';
+import { useWhatsNew } from './hooks/useWhatsNew';
 import type { DashboardData, DayForecast, HourlyDetail, LocationChoice, TideEvent } from './types/weather';
 import {
   degreesToCompass,
@@ -392,6 +393,9 @@ function AppScreen() {
   const { mode, colors, toggleTheme } = useTheme();
   const { layout, selectLayout } = useHourlyLayout();
   const { canInstall, installed, promptInstall } = usePwaInstall();
+  const { notes: whatsNew, acknowledge: acknowledgeWhatsNew } = useWhatsNew(APP_VERSION);
+  const changelogReady = whatsNew != null;
+  const showWhatsNew = changelogReady && whatsNew.length > 0;
   const styles = useMemo(() => createStyles(colors), [colors]);
   const chrome = useMemo(
     () => ({ mode, COLORS: colors, styles, toggleTheme, layout, selectLayout }),
@@ -409,23 +413,61 @@ function AppScreen() {
         <SafeAreaView style={styles.flex} edges={['top', 'left', 'right']}>
           {showGreeting ? (
             <View style={styles.flex}>
-              <Pressable
-                style={styles.flex}
-                onPress={() => setShowGreeting(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Continuar a CliMarEo"
-              >
-                <View style={styles.greetingInner} pointerEvents="none">
+              {showWhatsNew ? (
+                <View style={styles.flex}>
+                  <ScrollView
+                    contentContainerStyle={styles.whatsNewContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <Image source={headerLogo} style={styles.greetingLogo} />
+                    <Text style={styles.greetingTitle}>CliMarEo</Text>
+                    <Text style={styles.greetingPhrase}>
+                      Se ha actualizado a la versión {APP_VERSION}
+                    </Text>
+                    <View style={styles.whatsNewList}>
+                      {whatsNew.map((note) => (
+                        <Text key={note} style={styles.whatsNewItem}>
+                          · {note}
+                        </Text>
+                      ))}
+                    </View>
+                  </ScrollView>
+                  <Pressable
+                    onPress={() => {
+                      acknowledgeWhatsNew();
+                      setShowGreeting(false);
+                    }}
+                    style={styles.whatsNewContinue}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continuar a CliMarEo"
+                  >
+                    <Text style={styles.whatsNewContinueLabel}>Continuar</Text>
+                  </Pressable>
+                </View>
+              ) : !changelogReady ? (
+                <View style={styles.greetingInner}>
                   <Image source={headerLogo} style={styles.greetingLogo} />
                   <Text style={styles.greetingTitle}>CliMarEo</Text>
-                  <Text style={styles.greetingPhrase}>{greeting.texto}</Text>
-                  {greeting.autor ? (
-                    <Text style={styles.greetingAuthor}>{greeting.autor}</Text>
-                  ) : null}
-                  <Text style={styles.greetingHint}>Toca para continuar</Text>
                 </View>
-              </Pressable>
-              {canInstall ? (
+              ) : (
+                <Pressable
+                  style={styles.flex}
+                  onPress={() => setShowGreeting(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continuar a CliMarEo"
+                >
+                  <View style={styles.greetingInner} pointerEvents="none">
+                    <Image source={headerLogo} style={styles.greetingLogo} />
+                    <Text style={styles.greetingTitle}>CliMarEo</Text>
+                    <Text style={styles.greetingPhrase}>{greeting.texto}</Text>
+                    {greeting.autor ? (
+                      <Text style={styles.greetingAuthor}>{greeting.autor}</Text>
+                    ) : null}
+                    <Text style={styles.greetingHint}>Toca para continuar</Text>
+                  </View>
+                </Pressable>
+              )}
+              {showWhatsNew || !changelogReady ? null : canInstall ? (
                 <Pressable
                   onPress={() => {
                     void promptInstall();
@@ -1757,6 +1799,41 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.muted,
     fontSize: 14,
     marginTop: 8,
+  },
+  whatsNewContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 48,
+    paddingBottom: 24,
+    gap: 16,
+  },
+  whatsNewList: {
+    width: '100%',
+    gap: 10,
+    marginTop: 4,
+  },
+  whatsNewItem: {
+    color: COLORS.text,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  whatsNewContinue: {
+    marginHorizontal: 20,
+    marginBottom: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.chip,
+    borderRadius: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+  },
+  whatsNewContinueLabel: {
+    color: COLORS.accent,
+    fontSize: 15,
+    fontWeight: '700',
   },
   installButton: {
     position: 'absolute',
