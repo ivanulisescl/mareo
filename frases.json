@@ -1,22 +1,33 @@
-[
-  { "texto": "Buenos días, gordi. Que el mar te mire con cariño.", "autor": "" },
-  { "texto": "Si mi vida fuera una escalera, me la he pasado entera buscando el siguiente escalón, convencido de que estás en el tejado esperando a ver si llego yo.", "autor": "Robe" },
-  { "texto": "Ama, ama, ama y ensancha el alma.", "autor": "Manolo Chinato" },
-  { "texto": "Te quiero, gordi.", "autor": "" },
-  { "texto": "Que el viento te traiga solo cosas buenas.", "autor": "" },
-  { "texto": "Ceci, la luna y la mar van contigo.", "autor": "" },
-  { "texto": "Gordi, que no te falte ni brisa ni abrigo.", "autor": "" },
-  { "texto": "Hola, pichurrina. Un saludo desde la orilla, para ti.", "autor": "" },
-  { "texto": "Pichurrina, que el día te trate tan bien como tú me tratas.", "autor": "" },
-  { "texto": "Ceci, eres mi puerto. Que hoy haya calma.", "autor": "" },
-  { "texto": "Gordi, un beso antes de mirar el parte.", "autor": "" },
-  { "texto": "Pichurrina, que encuentres un claro entre nubes.", "autor": "" },
-  { "texto": "Para algunos la vida es cabalgar un camino empedrado de horas, minutos y segundos. Y yo, que más humilde soy, solo pido que la ola que surge del último suspiro de un segundo me transporte mecido hasta el siguiente.", "autor": "Robe" },
-  { "texto": "Y verás el resurgir, poderoso, del guerrero, sin miedo a leyes ni a nostalgias; y caer mil veces más y levantarse de nuevo, sin más bandera que sus huevos.", "autor": "Manolo Chinato / Extremoduro, «Pedrá»" },
-  { "texto": "Busco un mundo mejor y escarbo en un cajón, por si aparece entre mis cosas.", "autor": "Extremoduro, «Primer movimiento: el sueño»" },
-  { "texto": "Ceci, si no fuera pa mirarte, ya no tendría cinco sentidos.", "autor": "Extremoduro, «Prometeo»" },
-  { "texto": "Contigo, mano a mano, busquemos otros prados y otros ríos, otros valles floridos y sombríos, donde descanse, y siempre pueda verte ante los ojos míos, sin miedo y sobresalto de perderte.", "autor": "Garcilaso de la Vega, «Égloga I»" },
-  { "texto": "Yo no nací sino para quereros; mi alma os ha cortado a su medida; por hábito del alma mismo os quiero.", "autor": "Garcilaso de la Vega, «Soneto V»" },
-  { "texto": "Cuanto tengo confieso yo deberos; por vos nací, por vos tengo la vida, por vos he de morir, y por vos muero.", "autor": "Garcilaso de la Vega, «Soneto V»" },
-  { "texto": "Me levanté hasta los huevos de vivir, te vi pasar y ahora ya vuelvo a sonreír.", "autor": "Extremoduro, «Amor castúo»" }
-]
+{
+  "Bloque 1": [
+    { "texto": "Buenos días, gordi. Que el mar te mire con cariño.", "autor": "" },
+    { "texto": "Si mi vida fuera una escalera, me la he pasado entera buscando el siguiente escalón, convencido de que estás en el tejado esperando a ver si llego yo.", "autor": "Robe" },
+    { "texto": "Ama, ama, ama y ensancha el alma.", "autor": "Manolo Chinato" },
+    { "texto": "Te quiero, gordi.", "autor": "" },
+    { "texto": "Que el viento te traiga solo cosas buenas.", "autor": "" },
+    { "texto": "Ceci, la luna y la mar van contigo.", "autor": "" },
+    { "texto": "Gordi, que no te falte ni brisa ni abrigo.", "autor": "" },
+    { "texto": "Hola, pichurrina. Un saludo desde la orilla, para ti.", "autor": "" },
+    { "texto": "Pichurrina, que el día te trate tan bien como tú me tratas.", "autor": "" },
+    { "texto": "Ceci, eres mi puerto. Que hoy haya calma.", "autor": "" },
+    { "texto": "Gordi, un beso antes de mirar el parte.", "autor": "" },
+    { "texto": "Pichurrina, que encuentres un claro entre nubes.", "autor": "" },
+    { "texto": "Para algunos la vida es cabalgar un camino empedrado de horas, minutos y segundos. Y yo, que más humilde soy, solo pido que la ola que surge del último suspiro de un segundo me transporte mecido hasta el siguiente.", "autor": "Robe" },
+    { "texto": "Y verás el resurgir, poderoso, del guerrero, sin miedo a leyes ni a nostalgias; y caer mil veces más y levantarse de nuevo, sin más bandera que sus huevos.", "autor": "Manolo Chinato / Extremoduro, «Pedrá»" },
+    { "texto": "Busco un mundo mejor y escarbo en un cajón, por si aparece entre mis cosas.", "autor": "Extremoduro, «Primer movimiento: el sueño»" },
+    { "texto": "Ceci, si no fuera pa mirarte, ya no tendría cinco sentidos.", "autor": "Extremoduro, «Prometeo»" },
+    { "texto": "Me levanté hasta los huevos de vivir, te vi pasar y ahora ya vuelvo a sonreír.", "autor": "Extremoduro, «Amor castúo»" }
+  ],
+  "Bloque 2": [
+    { "texto": "Vives en mi corazón y nuestro amor es la historia más real que he vivido, escrita con gestos, con luchas compartidas y con esa ternura tuya que adoro.", "autor": "" },
+    { "texto": "Amarte no es depender de ti, es elegirte libremente incluso en los días en que la vida duele.", "autor": "" },
+    { "texto": "Cuando amas a alguien amas a la persona tal como es y no como te gustaría que fuera.", "autor": "León Tolstói" },
+    { "texto": "En el amor, encontrar la felicidad de alguien es nuestra mayor recompensa.", "autor": "Edgar Allan Poe" },
+    { "texto": "Contigo, mano a mano, busquemos otros prados y otros ríos, otros valles floridos y sombríos, donde descanse, y siempre pueda verte ante los ojos míos, sin miedo y sobresalto de perderte.", "autor": "Garcilaso de la Vega, «Égloga I»" },
+    { "texto": "Yo no nací sino para quereros; mi alma os ha cortado a su medida; por hábito del alma mismo os quiero.", "autor": "Garcilaso de la Vega, «Soneto V»" },
+    { "texto": "Cuanto tengo confieso yo deberos; por vos nací, por vos tengo la vida, por vos he de morir, y por vos muero.", "autor": "Garcilaso de la Vega, «Soneto V»" },
+    { "texto": "Supe que ser amado no es nada. Que amar, en cambio, lo es todo.", "autor": "Hermann Hesse" },
+    { "texto": "Podrá la muerte cubrirme con su fúnebre crespón; pero jamás en mí podrá apagarse la llama de tu amor.", "autor": "Gustavo Adolfo Bécquer" },
+    { "texto": "Te quiero, no por quien eres, sino por quien soy cuando estoy contigo.", "autor": "Gabriel García Márquez" }
+  ]
+}

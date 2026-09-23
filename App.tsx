@@ -28,7 +28,6 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 import {
   Image,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -108,6 +107,12 @@ type AppTab = 'resumen' | 'completa' | 'prediccion';
 type HourlyLayout = 'compact' | 'grouped';
 
 const HOURLY_LAYOUT_KEY = 'climareo-hourly-layout';
+const PHRASE_DAY_KEY = 'climareo-phrase-day';
+
+type PhraseBlock = 'Bloque 1' | 'Bloque 2';
+
+/** Bloque de frases.json que se muestra al abrir la app. */
+const ACTIVE_PHRASE_BLOCK: PhraseBlock = 'Bloque 2';
 
 function useHourlyLayout() {
   const [layout, setLayout] = useState<HourlyLayout>('grouped');
@@ -149,12 +154,77 @@ function pickFromList(list: GreetingPhrase[]): GreetingPhrase {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-function pickGreeting(): GreetingPhrase {
+function todayDateKey(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function greetingPool(): GreetingPhrase[] {
   const dated = (greetingPhrasesByDate as Record<string, GreetingPhrase[]>)[todayMonthDay()];
   if (dated && dated.length > 0) {
-    return pickFromList(dated);
+    return dated;
   }
-  return pickFromList(greetingPhrases as GreetingPhrase[]);
+  const blocks = greetingPhrases as Record<PhraseBlock, GreetingPhrase[]>;
+  return blocks[ACTIVE_PHRASE_BLOCK] ?? [];
+}
+
+type StoredDailyPhrase = GreetingPhrase & { date: string };
+
+function useDailyGreeting(): GreetingPhrase | null {
+  const [greeting, setGreeting] = useState<GreetingPhrase | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pool = greetingPool();
+    const today = todayDateKey();
+
+    const persist = (phrase: GreetingPhrase) => {
+      const payload: StoredDailyPhrase = {
+        date: today,
+        texto: phrase.texto,
+        autor: phrase.autor ?? '',
+      };
+      AsyncStorage.setItem(PHRASE_DAY_KEY, JSON.stringify(payload)).catch(() => {});
+    };
+
+    AsyncStorage.getItem(PHRASE_DAY_KEY)
+      .then((raw) => {
+        if (cancelled) {
+          return;
+        }
+        if (raw) {
+          try {
+            const stored = JSON.parse(raw) as StoredDailyPhrase;
+            const match = pool.find(
+              (phrase) => phrase.texto === stored.texto && (phrase.autor ?? '') === (stored.autor ?? ''),
+            );
+            if (stored.date === today && match) {
+              setGreeting(match);
+              return;
+            }
+          } catch {
+            // La frase guardada no se puede leer: se elige otra.
+          }
+        }
+        const picked = pickFromList(pool);
+        setGreeting(picked);
+        persist(picked);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGreeting(pickFromList(pool));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return greeting;
 }
 
 function formatMetric(value: number | null | undefined, digits = 1): string {
@@ -389,10 +459,10 @@ function AppScreen() {
     useWeatherData();
   const [tab, setTab] = useState<AppTab>('resumen');
   const [showGreeting, setShowGreeting] = useState(true);
-  const greeting = useMemo(() => pickGreeting(), []);
+  const greeting = useDailyGreeting();
   const { mode, colors, toggleTheme } = useTheme();
   const { layout, selectLayout } = useHourlyLayout();
-  const { canInstall, installed, promptInstall } = usePwaInstall();
+  const { canInstall, promptInstall } = usePwaInstall();
   const { notes: whatsNew, acknowledge: acknowledgeWhatsNew } = useWhatsNew(APP_VERSION);
   const changelogReady = whatsNew != null;
   const showWhatsNew = changelogReady && whatsNew.length > 0;
@@ -444,7 +514,7 @@ function AppScreen() {
                     <Text style={styles.whatsNewContinueLabel}>Continuar</Text>
                   </Pressable>
                 </View>
-              ) : !changelogReady ? (
+              ) : !changelogReady || !greeting ? (
                 <View style={styles.greetingInner}>
                   <Image source={headerLogo} style={styles.greetingLogo} />
                   <Text style={styles.greetingTitle}>CliMarEo</Text>
@@ -467,7 +537,7 @@ function AppScreen() {
                   </View>
                 </Pressable>
               )}
-              {showWhatsNew || !changelogReady ? null : canInstall ? (
+              {showWhatsNew || !changelogReady || !greeting || !canInstall ? null : (
                 <Pressable
                   onPress={() => {
                     void promptInstall();
@@ -479,11 +549,7 @@ function AppScreen() {
                   <Download size={18} color={colors.accent} />
                   <Text style={styles.installButtonLabel}>Instalar aplicación</Text>
                 </Pressable>
-              ) : Platform.OS === 'web' && !installed ? (
-                <Text style={styles.installHint}>
-                  Para instalar: abre en Chrome (pestaña con barra de direcciones), espera ~30 s y usa ⋮ → Instalar aplicación
-                </Text>
-              ) : null}
+              )}
               <HeaderActions greeting />
             </View>
           ) : (
@@ -1797,8 +1863,11 @@ function createStyles(COLORS: ThemeColors) {
   },
   greetingHint: {
     color: COLORS.muted,
-    fontSize: 14,
-    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginTop: 88,
   },
   whatsNewContent: {
     flexGrow: 1,
@@ -1854,16 +1923,6 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.accent,
     fontSize: 15,
     fontWeight: '700',
-  },
-  installHint: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 24,
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 17,
-    textAlign: 'center',
   },
   header: {
     paddingTop: 12,
