@@ -109,10 +109,10 @@ type HourlyLayout = 'compact' | 'grouped';
 const HOURLY_LAYOUT_KEY = 'climareo-hourly-layout';
 const PHRASE_DAY_KEY = 'climareo-phrase-day';
 
-type PhraseBlock = 'Bloque 1' | 'Bloque 2';
+type PhraseBlock = 'Bloque 1' | 'Bloque 2' | 'Bloque 3';
 
 /** Bloque de frases.json que se muestra al abrir la app. */
-const ACTIVE_PHRASE_BLOCK: PhraseBlock = 'Bloque 2';
+const ACTIVE_PHRASE_BLOCK: PhraseBlock = 'Bloque 3';
 
 function useHourlyLayout() {
   const [layout, setLayout] = useState<HourlyLayout>('grouped');
