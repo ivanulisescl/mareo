@@ -1521,7 +1521,7 @@ const HourlyBoardHour = memo(function HourlyBoardHour({
 
   const weatherIcon = (
     <View style={styles.hourlyIcon} accessibilityLabel={hourWeather.label}>
-      <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={18} />
+      <WeatherEmoji code={hour.weatherCode} isDay={hour.isDay} size={14} />
     </View>
   );
   const temperature = (
@@ -1547,7 +1547,7 @@ const HourlyBoardHour = memo(function HourlyBoardHour({
   );
   const windDir = (
     <View style={styles.hourlyIcon}>
-      <WindCompass degrees={hour.windDirection} size={22} />
+      <WindCompass degrees={hour.windDirection} size={16} />
     </View>
   );
   const windSpeed = (
@@ -1629,7 +1629,7 @@ function HourlyTideMark({ tide }: { tide: TideEvent | null }) {
       style={styles.hourlyTideMark}
       accessibilityLabel={`${isHigh ? 'Pleamar' : 'Bajamar'} ${formatTideClock(tide.time)} · ${formatMetric(tide.height, 2)} m`}
     >
-      <Icon size={12} color={color} />
+      <Icon size={10} color={color} />
       <Text style={[styles.hourlyTideClock, { color }]}>{formatTideClock(tide.time)}</Text>
     </View>
   );
@@ -1827,8 +1827,8 @@ function createStyles(COLORS: ThemeColors) {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
   greetingInner: {
     flex: 1,
@@ -1925,8 +1925,8 @@ function createStyles(COLORS: ThemeColors) {
     fontWeight: '700',
   },
   header: {
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1949,10 +1949,10 @@ function createStyles(COLORS: ThemeColors) {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 10,
+    marginTop: 6,
     alignSelf: 'flex-start',
     maxWidth: '100%',
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingRight: 8,
   },
   locationText: {
@@ -1971,7 +1971,7 @@ function createStyles(COLORS: ThemeColors) {
     marginTop: 6,
   },
   cards: {
-    gap: 14,
+    gap: 10,
   },
   hourlyLayoutToggle: {
     flexDirection: 'row',
@@ -2005,14 +2005,14 @@ function createStyles(COLORS: ThemeColors) {
     backgroundColor: COLORS.card,
     borderColor: COLORS.border,
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 16,
+    padding: 10,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   iconBadge: {
     width: 34,
@@ -2073,15 +2073,15 @@ function createStyles(COLORS: ThemeColors) {
     fontWeight: '700',
   },
   tideList: {
-    gap: 8,
+    gap: 6,
   },
   tideRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     backgroundColor: COLORS.chip,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 8,
   },
   tideRowNested: {
     backgroundColor: COLORS.card,
@@ -2193,14 +2193,14 @@ function createStyles(COLORS: ThemeColors) {
     color: COLORS.accent,
   },
   summaryList: {
-    gap: 10,
+    gap: 6,
   },
   airGroup: {
     backgroundColor: COLORS.chip,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 5,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
   },
   airGroupTitle: {
     color: COLORS.muted,
@@ -2241,21 +2241,21 @@ function createStyles(COLORS: ThemeColors) {
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
     backgroundColor: COLORS.chip,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 8,
   },
   summaryRowStack: {
     backgroundColor: COLORS.chip,
-    borderRadius: 14,
-    padding: 12,
-    gap: 10,
+    borderRadius: 12,
+    padding: 8,
+    gap: 6,
   },
   summaryRowHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
   },
   summaryRowValue: {
     color: COLORS.text,
@@ -2326,15 +2326,15 @@ function createStyles(COLORS: ThemeColors) {
   },
   hourlyDayHours: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
   },
   hourlyDayHoursGrouped: {
-    gap: 2,
+    gap: 1,
   },
   hourlyDayHeader: {
     color: COLORS.accent,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
     height: 18,
   },
@@ -2347,19 +2347,19 @@ function createStyles(COLORS: ThemeColors) {
     paddingTop: 0,
   },
   hourlyBoardLabels: {
-    width: 76,
-    gap: 2,
+    width: 64,
+    gap: 1,
     paddingTop: 0,
   },
   hourlyBoardLabelsGrouped: {
-    width: 76,
-    gap: 3,
+    width: 64,
+    gap: 2,
     paddingTop: 0,
   },
   hourlyChipGrouped: {
-    minWidth: 44,
+    minWidth: 36,
     alignItems: 'center',
-    gap: 3,
+    gap: 2,
   },
   hourlyGroup: {
     alignSelf: 'stretch',
@@ -2374,112 +2374,112 @@ function createStyles(COLORS: ThemeColors) {
     alignItems: 'stretch',
   },
   hourlyGroupTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 12,
-    height: 14,
+    fontSize: 9,
+    fontWeight: '400',
+    lineHeight: 11,
+    height: 12,
     paddingHorizontal: 2,
   },
   hourlyGroupTitleSlot: {
-    height: 14,
+    height: 12,
     alignSelf: 'stretch',
   },
   hourlyBoardLabel: {
     color: COLORS.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '400',
-    lineHeight: 14,
-    height: 28,
+    lineHeight: 12,
+    height: 22,
   },
   hourlyBoardTideLabel: {
     color: COLORS.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '400',
-    lineHeight: 14,
-    height: 36,
+    lineHeight: 12,
+    height: 30,
   },
   hourlyTideTitle: {
-    height: 36,
+    height: 30,
     alignSelf: 'stretch',
     justifyContent: 'flex-start',
     alignItems: 'flex-start',
   },
   hourlyTideMark: {
-    height: 36,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hourlyTideClock: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '400',
-    lineHeight: 12,
+    lineHeight: 11,
   },
   hourlyBoardTime: {
     color: COLORS.muted,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '400',
-    height: 16,
+    height: 14,
   },
   hourlyBoardValue: {
     color: COLORS.text,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '400',
-    lineHeight: 18,
-    height: 28,
+    lineHeight: 14,
+    height: 22,
     textAlign: 'center',
   },
   hourlyScroll: {
     flex: 1,
   },
   hourlyLabelTime: {
-    height: 16,
+    height: 14,
   },
   hourlyLabel: {
     color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 14,
-    height: 28,
+    fontSize: 10,
+    fontWeight: '400',
+    lineHeight: 12,
+    height: 22,
   },
   hourlyScroller: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     paddingRight: 4,
     flexGrow: 1,
   },
   hourlyScrollerGrouped: {
-    gap: 2,
+    gap: 1,
   },
   hourlyChip: {
-    minWidth: 48,
+    minWidth: 38,
     alignItems: 'center',
-    gap: 2,
+    gap: 1,
   },
   hourlyTime: {
     color: COLORS.muted,
-    fontSize: 11,
-    fontWeight: '700',
-    height: 16,
+    fontSize: 10,
+    fontWeight: '400',
+    height: 14,
   },
   hourlyIcon: {
-    height: 28,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hourlyValue: {
     color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-    height: 28,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 16,
+    height: 22,
     textAlign: 'center',
   },
   hourlyGusts: {
     color: COLORS.accent,
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-    height: 28,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 16,
+    height: 22,
     textAlign: 'center',
   },
   tabBarSafe: {
